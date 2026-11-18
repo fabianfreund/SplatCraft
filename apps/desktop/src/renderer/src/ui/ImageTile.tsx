@@ -28,7 +28,7 @@ export function ImageTile({ src, placeholder, corner, dimmed, score, badge, mark
       <button
         type="button"
         onClick={onClick}
-        className="group relative block aspect-[3/2] w-full overflow-hidden rounded-md bg-surface-2 outline-none ring-1 ring-line transition-shadow duration-150 hover:ring-line-strong focus-visible:ring-line-focus"
+        className="press group relative block aspect-[3/2] w-full overflow-hidden rounded-md bg-surface-2 outline-none ring-1 ring-line hover:ring-line-strong focus-visible:ring-line-focus"
       >
         {src && !failed ? (
         <img
@@ -37,7 +37,7 @@ export function ImageTile({ src, placeholder, corner, dimmed, score, badge, mark
           alt=""
           loading="lazy"
           draggable={false}
-          className={cn('size-full object-cover transition-[filter,opacity] duration-200', dimmed && 'opacity-35 grayscale')}
+          className={cn('size-full object-cover transition-[filter,opacity,transform] duration-300 ease-out group-hover:scale-[1.03]', dimmed && 'opacity-35 grayscale')}
           style={{ animation: 'sc-fade-in var(--sc-duration-base) var(--sc-ease-out)' }}
         />
         ) : (
@@ -46,7 +46,7 @@ export function ImageTile({ src, placeholder, corner, dimmed, score, badge, mark
         {corner && <span className="absolute bottom-1.5 right-1.5">{corner}</span>}
         {score !== undefined && (
           <span className="absolute inset-x-0 bottom-0 h-[3px] bg-overlay">
-            <span className={cn('block h-full origin-left', tone, dimmed && 'opacity-50')} style={{ transform: `scaleX(${Math.max(0.04, Math.min(1, score))})` }} />
+            <span className={cn('block h-full origin-left', tone, dimmed && 'opacity-50')} style={{ transform: `scaleX(${Math.max(0.04, Math.min(1, score))})`, transition: 'transform var(--sc-duration-slow) var(--sc-ease-out)' }} />
           </span>
         )}
         {badge && <span className="absolute left-1 top-1">{badge}</span>}

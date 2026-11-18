@@ -25,13 +25,13 @@ export interface StepperItemProps {
   trailing?: ReactNode;
   /** Fixed 16px slot before the stat (e.g. a notice indicator). */
   indicator?: ReactNode;
+  /** Settings differ from the preset defaults (small accent dot). */
+  modified?: boolean;
   onSelect?: () => void;
 }
 
-const ROW_H = 52;
-
 /** One row of a vertical numbered stepper. All slots are fixed-size. */
-export function StepperItem({ index, title, help, stat, statMuted, state, fraction, selected, doneBelow, last, error, trailing, indicator, onSelect }: StepperItemProps) {
+export function StepperItem({ index, title, help, stat, statMuted, state, fraction, selected, doneBelow, last, error, trailing, indicator, modified, onSelect }: StepperItemProps) {
   const done = state === 'done';
   const badge = (
     <span
@@ -45,7 +45,7 @@ export function StepperItem({ index, title, help, stat, statMuted, state, fracti
         state === 'disabled' && 'border-line bg-surface-1 text-fg-faint',
       )}
     >
-      {done ? <Check size={12} strokeWidth={3} /> : state === 'running' ? <Spinner size={12} /> : state === 'error' ? <X size={12} strokeWidth={3} /> : index}
+      {done ? <Check size={12} strokeWidth={3} style={{ animation: 'sc-check-pop var(--sc-duration-spring) var(--sc-ease-spring)' }} /> : state === 'running' ? <Spinner size={12} /> : state === 'error' ? <X size={12} strokeWidth={3} /> : index}
     </span>
   );
   return (
@@ -60,15 +60,21 @@ export function StepperItem({ index, title, help, stat, statMuted, state, fracti
         selected ? 'bg-surface-3' : 'hover:bg-surface-2',
         state === 'disabled' && 'opacity-50',
       )}
-      style={{ height: ROW_H }}
+      style={{ height: 'var(--sc-row-h)' }}
     >
       {/* connector to the next row */}
       {!last && (
         <span
           aria-hidden
-          className={cn('absolute left-[21px] top-[38px] w-px transition-colors duration-300', doneBelow ? 'bg-accent' : 'bg-line-strong')}
-          style={{ height: ROW_H - 24 }}
-        />
+          className="absolute left-[21px] z-[1] w-px bg-line-strong"
+          style={{ top: 'calc(var(--sc-row-h) / 2 + 12px)', height: 'calc(var(--sc-row-h) - 24px)' }}
+        >
+          {/* Accent fill draws from top to bottom when the step below is reached. */}
+          <span
+            className="absolute inset-0 origin-top bg-accent"
+            style={{ transform: `scaleY(${doneBelow ? 1 : 0})`, transition: 'transform var(--sc-duration-slow) var(--sc-ease-out)' }}
+          />
+        </span>
       )}
       {error ? (
         <Tooltip content={error} wide>
@@ -80,9 +86,17 @@ export function StepperItem({ index, title, help, stat, statMuted, state, fracti
       <div className="ml-1 flex min-w-0 flex-1 flex-col justify-center gap-0.5">
         <div className="flex items-center gap-1">
           <span className={cn('ellipsis text-sm font-medium', selected ? 'text-fg' : 'text-fg-muted', state === 'running' && 'text-fg')}>{title}</span>
-          <HelpTip text={help} />
+          {modified && (
+            <Tooltip content="Customized settings">
+              <span aria-label="Customized" className="size-1.5 shrink-0 rounded-full bg-accent" />
+            </Tooltip>
+          )}
+          {/* Help is revealed on hover/focus: the slot is always reserved. */}
+          <span className="opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+            <HelpTip text={help} />
+          </span>
         </div>
-        <div className="flex h-[14px] w-full items-center">
+        <div className="flex h-[14px] w-full items-center" aria-hidden={state === 'running'}>
           {state === 'running' ? (
             <ProgressBar value={fraction} height={2} />
           ) : state === 'error' && error ? (

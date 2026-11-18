@@ -8,10 +8,14 @@ async function start() {
     const { createMockApi } = await import('./lib/mock/mockApi');
     window.splatcraft = createMockApi();
   }
-  const { App } = await import('./App');
+  const { bindPrefs } = await import('./store/prefs');
+  bindPrefs();
+  (await import('./lib/scrollPolish')).bindScrollPolish();
+  // `?kit` renders the component catalog instead of the app (dev aid).
+  const Root = new URLSearchParams(location.search).has('kit') ? (await import('./dev/UiKit')).UiKit : (await import('./App')).App;
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <App />
+      <Root />
     </StrictMode>,
   );
 }

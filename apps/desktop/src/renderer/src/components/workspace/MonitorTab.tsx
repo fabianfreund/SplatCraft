@@ -52,7 +52,7 @@ export function MonitorTab() {
   const metricKeys = metrics ? Object.keys(metrics) : [];
 
   return (
-    <div className="scroll-stable absolute inset-0 bg-bg px-5 py-4">
+    <div className="scroll-stable absolute inset-0 bg-bg px-5 py-4" style={{ animation: 'sc-fade-in var(--sc-duration-base) var(--sc-ease-out)' }}>
       <div className="mx-auto flex max-w-[1200px] flex-col gap-6">
         <section className="flex flex-col gap-3">
           <div className="flex h-7 items-center gap-2">

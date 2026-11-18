@@ -45,8 +45,8 @@ export function ContextMenu({ state, onClose }: { state: ContextMenuState | null
       ref={ref}
       role="menu"
       onMouseDown={(e) => e.stopPropagation()}
-      className="fixed z-[1100] min-w-[180px] rounded-md border border-line-strong bg-surface-3 p-1 shadow-lg"
-      style={{ left: pos?.x ?? state.x, top: pos?.y ?? state.y, visibility: pos ? 'visible' : 'hidden', animation: 'sc-pop-in var(--sc-duration-fast) var(--sc-ease-out)' }}
+      className="glass fixed z-[1100] min-w-[180px] rounded-lg border p-1"
+      style={{ left: pos?.x ?? state.x, top: pos?.y ?? state.y, visibility: pos ? 'visible' : 'hidden', animation: 'sc-pop-spring var(--sc-duration-spring) var(--sc-ease-spring)', transformOrigin: 'top left' }}
     >
       {state.items.map((it) => (
         <button
@@ -60,7 +60,7 @@ export function ContextMenu({ state, onClose }: { state: ContextMenuState | null
           }}
           className={cn(
             'flex h-7 w-full items-center gap-2 rounded-sm px-2 text-left text-sm outline-none disabled:text-fg-faint',
-            it.danger ? 'text-danger hover:bg-danger-soft' : 'text-fg hover:bg-accent hover:text-accent-ink',
+            it.danger ? 'text-danger hover:bg-danger-soft' : 'text-fg hover:bg-accent-soft',
           )}
         >
           {it.icon && <it.icon size={14} />}

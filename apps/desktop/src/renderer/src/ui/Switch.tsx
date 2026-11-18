@@ -24,14 +24,27 @@ export function Switch({ checked, onChange, size = 'md', label, disabled }: Swit
         onChange(!checked);
       }}
       className={cn(
-        'no-drag relative inline-flex shrink-0 items-center rounded-full border outline-none transition-colors duration-200 disabled:opacity-40',
+        'group/sw no-drag relative inline-flex shrink-0 items-center rounded-full border outline-none transition-colors duration-200 disabled:opacity-40',
         checked ? 'border-transparent bg-accent' : 'border-line-strong bg-surface-4',
       )}
       style={{ width: w, height: h }}
     >
+      {/* Knob springs across; while pressed it stretches toward the travel direction. */}
       <span
-        className={cn('absolute rounded-full shadow-sm transition-transform duration-200 ease-out', checked ? 'bg-accent-ink' : 'bg-fg-muted')}
-        style={{ width: k, height: k, left: 1, transform: `translateX(${checked ? w - k - 4 : 0}px)` }}
+        className={cn(
+          'absolute rounded-full shadow-sm group-active/sw:w-[calc(var(--k)+5px)]',
+          checked ? 'bg-accent-ink group-active/sw:[margin-left:-5px]' : 'bg-fg-muted',
+        )}
+        style={
+          {
+            '--k': `${k}px`,
+            width: k,
+            height: k,
+            left: 1,
+            transform: `translateX(${checked ? w - k - 4 : 0}px)`,
+            transition: 'transform var(--sc-duration-spring) var(--sc-ease-spring), width var(--sc-duration-fast) ease-out, margin var(--sc-duration-fast) ease-out, background-color var(--sc-duration-fast) ease-out',
+          } as React.CSSProperties
+        }
       />
     </button>
   );

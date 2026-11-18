@@ -36,15 +36,15 @@ export const ListRow = forwardRef<HTMLDivElement, ListRowProps>(function ListRow
       className={cn(
         'group flex shrink-0 items-center gap-2.5 rounded-md px-2 outline-none transition-colors duration-100',
         heights[size],
-        selected ? 'bg-accent text-accent-ink' : 'hover:bg-surface-3',
+        selected ? 'bg-accent-soft' : 'hover:bg-surface-3',
         dimmed && !selected && 'opacity-45',
         className,
       )}
     >
       {leading && <div className="flex shrink-0 items-center justify-center">{leading}</div>}
       <div className="flex min-w-0 flex-1 flex-col justify-center">
-        <span className={cn('ellipsis font-medium', size === 'sm' ? 'text-xs' : 'text-sm', selected ? 'text-accent-ink' : 'text-fg')}>{title}</span>
-        {subtitle && <span className={cn('ellipsis text-xs', selected ? 'text-accent-ink opacity-75' : 'text-fg-subtle')}>{subtitle}</span>}
+        <span className={cn('ellipsis font-medium', size === 'sm' ? 'text-xs' : 'text-sm', 'text-fg')}>{title}</span>
+        {subtitle && <span className={cn('ellipsis text-xs', 'text-fg-subtle')}>{subtitle}</span>}
       </div>
       {trailing && <div className="flex shrink-0 items-center gap-1">{trailing}</div>}
     </div>

@@ -2,10 +2,15 @@ import type { AppInfo, OpenProject, PresetId, ProjectMeta, RecentProject } from 
 import { create } from 'zustand';
 import { load, save } from './persist';
 import { pushMessage } from './messages';
-import { usePipeline } from './pipeline';
+import { descriptorFor, usePipeline } from './pipeline';
+import { useViewer } from './viewer';
+import { focusFor } from '../lib/steps';
 
 export type WorkspaceTab = 'gallery' | 'viewer' | 'monitor' | 'runs';
 export type UiMode = 'simple' | 'advanced';
+export type SettingsSection = 'general' | 'appearance' | 'tools';
+/** Views each mode offers. Advanced only adds; it never removes or reorders. */
+export const VIEWS: Record<UiMode, WorkspaceTab[]> = { simple: ['gallery', 'viewer'], advanced: ['gallery', 'viewer', 'monitor', 'runs'] };
 
 interface AppState {
   booted: boolean;
@@ -15,14 +20,21 @@ interface AppState {
   tab: WorkspaceTab;
   mode: UiMode;
   newProjectOpen: boolean;
-  toolsOpen: boolean;
+  /** Open settings section, or null. */
+  settings: SettingsSection | null;
+  /** Focus mode: rail, inspector and status bar hidden. */
+  chromeHidden: boolean;
   dockExpanded: boolean;
   /** Console filter (step key or 'all'). */
   logFilter: string;
   busy: boolean;
+  /** A known project is being opened (drives the app-wide loader; not set while a file picker is up). */
+  opening: boolean;
   error?: string;
-  /** Auto-switch bookkeeping for the current run. */
-  autoView: { switched: boolean; userPicked: boolean };
+  /** Gallery content (set by step focus). */
+  gallery: 'sources' | 'frames';
+  /** The user picked a view by hand during the current run → automatic focus pauses until the next run. */
+  autoView: { userPicked: boolean };
 
   boot(): Promise<void>;
   refreshRecent(): Promise<void>;
@@ -36,11 +48,19 @@ interface AppState {
   /** `user` = explicit choice (suppresses the automatic switch for this run). */
   setTab(t: WorkspaceTab, user?: boolean): void;
   resetAutoView(): void;
-  /** Called when a 3D preview arrives: switch Gallery → Viewer once per run. */
-  maybeAutoSwitch(): void;
+  /**
+   * Shows what a step is about: view (gallery/viewer), gallery content and viewer layers.
+   * 'user' = the user selected the step (always applies); 'auto' = a step started running
+   * (skipped if the user picked a view during the step, or is on Monitor/Runs).
+   */
+  focusStep(key: string, origin: 'user' | 'auto'): void;
+  setGallery(g: 'sources' | 'frames'): void;
   setMode(m: UiMode): void;
   setNewProjectOpen(v: boolean): void;
+  setSettings(s: SettingsSection | null): void;
+  /** Shortcut for Settings → Tools & Add-ons. */
   setToolsOpen(v: boolean): void;
+  toggleChrome(): void;
   setDockExpanded(v: boolean): void;
   setLogFilter(f: string): void;
   /** Open the console filtered to one step. */
@@ -55,12 +75,15 @@ export const useApp = create<AppState>()((set, get) => ({
   recent: null,
   project: null,
   tab: (['gallery', 'viewer', 'monitor', 'runs'] as const).includes(load<WorkspaceTab>('tab', 'gallery')) ? load<WorkspaceTab>('tab', 'gallery') : 'gallery',
-  autoView: { switched: false, userPicked: false },
+  gallery: 'frames',
+  autoView: { userPicked: false },
   mode: load<UiMode>('mode', 'simple'),
   newProjectOpen: false,
-  toolsOpen: false,
+  settings: null,
+  chromeHidden: false,
   dockExpanded: load('dockExpanded', false),
   busy: false,
+  opening: false,
   logFilter: 'all',
 
   async boot() {
@@ -81,8 +104,15 @@ export const useApp = create<AppState>()((set, get) => ({
     const prev = get().project;
     set({ project: p });
     if (p && p.dir !== prev?.dir) {
-      set({ tab: 'gallery', autoView: { switched: false, userPicked: false } });
-      void usePipeline.getState().loadForProject(p);
+      set({ tab: 'gallery', gallery: 'frames', autoView: { userPicked: false } });
+      usePipeline
+        .getState()
+        .loadForProject(p)
+        .catch((e) => {
+          // Never leave the workspace behind the "Preparing" overlay.
+          usePipeline.setState({ stagesLoaded: true });
+          get().setError(`Could not load the workflow: ${String((e as Error)?.message ?? e)}`);
+        });
     }
     else if (p) usePipeline.getState().syncSpec(p.meta);
     if (!p) {
@@ -96,13 +126,13 @@ export const useApp = create<AppState>()((set, get) => ({
   },
   async openProject(dir) {
     try {
-      set({ busy: true });
+      set({ busy: true, opening: !!dir });
       const p = await api().projects.open(dir);
       if (p) get().setProject(p);
     } catch (e) {
       set({ error: String((e as Error).message ?? e) });
     } finally {
-      set({ busy: false });
+      set({ busy: false, opening: false });
     }
   },
   async createProject(input, preset) {
@@ -130,20 +160,33 @@ export const useApp = create<AppState>()((set, get) => ({
   },
   setTab(tab, user = true) {
     save('tab', tab);
-    set((s) => ({ tab, autoView: user && usePipeline.getState().running ? { ...s.autoView, userPicked: true } : s.autoView }));
+    set((s) => ({ tab, autoView: user && usePipeline.getState().running ? { userPicked: true } : s.autoView }));
   },
-  resetAutoView: () => set({ autoView: { switched: false, userPicked: false } }),
-  maybeAutoSwitch() {
-    const { autoView, tab } = get();
-    if (autoView.switched || autoView.userPicked) return;
-    set({ autoView: { ...autoView, switched: true }, ...(tab === 'gallery' ? { tab: 'viewer' as const } : {}) });
+  resetAutoView: () => set({ autoView: { userPicked: false } }),
+  setGallery: (gallery) => set({ gallery }),
+  focusStep(key, origin) {
+    const p = usePipeline.getState();
+    const st = p.spec?.steps.find((x) => x.key === key);
+    if (!st) return;
+    const { tab, autoView } = get();
+    if (origin === 'auto' && autoView.userPicked) return;
+    const f = focusFor(descriptorFor(p.stages, st.stageId)?.category);
+    // Monitor / Runs are tools the user opened on purpose: update content, keep the view.
+    const keepTab = tab === 'monitor' || tab === 'runs';
+    if (!keepTab) save('tab', f.tab);
+    set({ ...(keepTab ? {} : { tab: f.tab }), ...(f.gallery ? { gallery: f.gallery } : {}) });
+    // Not persisted: the user's own layer toggles are what gets saved.
+    if (f.layers) useViewer.getState().set({ layers: f.layers });
   },
   setMode(mode) {
     save('mode', mode);
-    set({ mode });
+    // Leaving advanced: fall back to a view simple mode has (state is kept).
+    set((s) => ({ mode, tab: VIEWS[mode].includes(s.tab) ? s.tab : 'gallery' }));
   },
   setNewProjectOpen: (newProjectOpen) => set({ newProjectOpen }),
-  setToolsOpen: (toolsOpen) => set({ toolsOpen }),
+  setSettings: (settings) => set({ settings }),
+  setToolsOpen: (v) => set({ settings: v ? 'tools' : null }),
+  toggleChrome: () => set((s) => ({ chromeHidden: !s.chromeHidden })),
   setDockExpanded(dockExpanded) {
     save('dockExpanded', dockExpanded);
     set({ dockExpanded });

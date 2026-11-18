@@ -81,12 +81,22 @@ export function formatStat(v: number | string): string {
   return typeof v === 'number' ? formatNumber(v) : v;
 }
 
+/** Words always shown in upper case (acronyms) or expanded. */
+const WORDS: Record<string, string> = {
+  sh: 'SH', lr: 'LR', psnr: 'PSNR', ssim: 'SSIM', lpips: 'LPIPS', fps: 'FPS', gpu: 'GPU', cpu: 'CPU', vram: 'VRAM', ram: 'RAM',
+  sfm: 'SfM', mvs: 'MVS', iou: 'IoU', id: 'ID', ply: 'PLY', spz: 'SPZ', sog: 'SOG', exif: 'EXIF', rgb: 'RGB', mcmc: 'MCMC',
+  px: 'px', max: 'Max', min: 'Min', cams: 'cameras', num: 'Number of', iters: 'iterations',
+};
+
 /** camelCase / snake_case → "Title case". */
 export function humanize(key: string): string {
-  const s = key
+  const words = key
     .replace(/[_-]+/g, ' ')
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
     .trim()
-    .toLowerCase();
-  return s.charAt(0).toUpperCase() + s.slice(1);
+    .toLowerCase()
+    .split(/\s+/)
+    .map((w) => WORDS[w] ?? w);
+  const s = words.join(' ');
+  return /^[a-z]/.test(s) ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 }

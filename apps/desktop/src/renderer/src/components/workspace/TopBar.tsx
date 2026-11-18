@@ -1,5 +1,5 @@
-import { Activity, Box, Images, LayoutList, Play, Settings2, SkipForward, SlidersHorizontal, Sparkle, Square } from 'lucide-react';
-import { useApp, type UiMode, type WorkspaceTab } from '../../store/app';
+import { Activity, Box, Images, LayoutList, Maximize2, Minimize2, Play, Settings, SkipForward, SlidersHorizontal, Sparkle, Square, type LucideIcon } from 'lucide-react';
+import { useApp, VIEWS, type UiMode, type WorkspaceTab } from '../../store/app';
 import { descriptorFor, effectiveSelectedKey, usePipeline } from '../../store/pipeline';
 import { shortTitle } from '../../lib/steps';
 import { Button, Divider, IconButton, SegmentedControl } from '../../ui';
@@ -7,51 +7,60 @@ import { MessagesButton } from './MessagesButton';
 import { ProjectMenu } from './ProjectMenu';
 
 const SLOT = 112;
+const VIEW_META: Record<WorkspaceTab, { label: string; icon: LucideIcon }> = {
+  gallery: { label: 'Gallery', icon: Images },
+  viewer: { label: 'Viewer', icon: Box },
+  monitor: { label: 'Monitor', icon: Activity },
+  runs: { label: 'Runs', icon: LayoutList },
+};
 
+/**
+ * Top bar: project · views · (messages, settings, mode) · run.
+ * Advanced mode only appends views; nothing else moves.
+ */
 export function TopBar() {
   const info = useApp((s) => s.info);
   const tab = useApp((s) => s.tab);
   const setTab = useApp((s) => s.setTab);
   const mode = useApp((s) => s.mode);
   const setMode = useApp((s) => s.setMode);
-  const setToolsOpen = useApp((s) => s.setToolsOpen);
+  const setSettings = useApp((s) => s.setSettings);
+  const chromeHidden = useApp((s) => s.chromeHidden);
+  const toggleChrome = useApp((s) => s.toggleChrome);
   const noSources = useApp((s) => (s.project?.meta.sources.length ?? 0) === 0);
   const isMac = (info?.platform ?? 'darwin') === 'darwin';
 
   return (
     <header className="drag relative flex h-[var(--sc-topbar-h)] shrink-0 items-center gap-2 border-b border-line bg-surface-1 pr-3" style={{ paddingLeft: isMac ? 'var(--sc-traffic-lights-w)' : 12 }}>
-      <ProjectMenu />
+      <div className="flex min-w-0 flex-1 basis-0 items-center gap-2">
+        <ProjectMenu />
+        <Divider vertical className="mx-0.5 h-4" />
+        <SegmentedControl<UiMode>
+          ariaLabel="Mode"
+          size="sm"
+          value={mode}
+          options={[
+            { value: 'simple', label: 'Simple', icon: Sparkle },
+            { value: 'advanced', label: 'Advanced', icon: SlidersHorizontal },
+          ]}
+          onChange={setMode}
+        />
+      </div>
 
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+      <div className="flex shrink-0 justify-center">
         <SegmentedControl<WorkspaceTab>
           ariaLabel="View"
           size="sm"
-          segmentWidth={92}
           value={tab}
-          options={[
-            { value: 'gallery', label: 'Gallery', icon: Images },
-            { value: 'viewer', label: 'Viewer', icon: Box },
-          ]}
+          options={VIEWS[mode].map((v) => ({ value: v, ...VIEW_META[v] }))}
           onChange={(t) => setTab(t)}
         />
       </div>
 
-      <div className="ml-auto flex items-center gap-1">
+      <div className="flex flex-1 basis-0 items-center justify-end gap-1">
+        <IconButton icon={chromeHidden ? Minimize2 : Maximize2} label={chromeHidden ? 'Show panels (\\)' : 'Focus mode (\\)'} size="md" active={chromeHidden} onClick={toggleChrome} tooltipSide="bottom" />
         <MessagesButton />
-        <IconButton icon={Activity} label="Monitor" size="md" active={tab === 'monitor'} onClick={() => setTab(tab === 'monitor' ? 'gallery' : 'monitor')} tooltipSide="bottom" />
-        <IconButton icon={LayoutList} label="Runs" size="md" active={tab === 'runs'} onClick={() => setTab(tab === 'runs' ? 'gallery' : 'runs')} tooltipSide="bottom" />
-        <IconButton icon={Settings2} label="Tools & Add-ons" size="md" onClick={() => setToolsOpen(true)} tooltipSide="bottom" />
-        <SegmentedControl<UiMode>
-          ariaLabel="Mode"
-          size="sm"
-          segmentWidth={30}
-          value={mode}
-          options={[
-            { value: 'simple', icon: Sparkle, tooltip: 'Simple' },
-            { value: 'advanced', icon: SlidersHorizontal, tooltip: 'Advanced' },
-          ]}
-          onChange={setMode}
-        />
+        <IconButton icon={Settings} label="Settings (⌘,)" size="md" onClick={() => setSettings('general')} tooltipSide="bottom" />
         <Divider vertical className="mx-1.5" />
         <RunButtons disabled={noSources} />
       </div>

@@ -77,7 +77,7 @@ export function Tooltip({ content, side = 'top', delay = 350, children, classNam
             ref={bubble}
             role="tooltip"
             className={cn(
-              'pointer-events-none fixed z-[1000] rounded-sm border border-line-strong bg-surface-4 px-2 py-1 text-xs text-fg shadow-md',
+              'glass pointer-events-none fixed z-[1000] rounded-md border px-2 py-1 text-xs text-fg',
               wide ? 'max-w-[280px]' : 'max-w-[220px]',
             )}
             style={{

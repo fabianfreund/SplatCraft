@@ -44,3 +44,29 @@ function compact(v: number): string {
   if (v >= 1e3) return `${Math.round(v / 1e3)}k`;
   return `${v}`;
 }
+
+/** What the workspace shows for a step: which view, and what that view displays. */
+export interface StepFocus {
+  tab: 'gallery' | 'viewer';
+  /** Gallery content: the input media or the extracted / reviewed frames. */
+  gallery?: 'sources' | 'frames';
+  /** Viewer layers to show. */
+  layers?: { points: boolean; cameras: boolean; splat: boolean };
+}
+
+/**
+ * Per-category focus. Workflows stay data-driven: a new stage category only
+ * needs an entry here (unknown categories fall back to the gallery).
+ */
+const FOCUS: Record<string, StepFocus> = {
+  prepare: { tab: 'gallery', gallery: 'sources' },
+  filter: { tab: 'gallery', gallery: 'frames' },
+  align: { tab: 'viewer', layers: { points: true, cameras: true, splat: false } },
+  train: { tab: 'viewer', layers: { points: false, cameras: false, splat: true } },
+  refine: { tab: 'viewer', layers: { points: false, cameras: false, splat: true } },
+  export: { tab: 'viewer', layers: { points: false, cameras: false, splat: true } },
+};
+
+export function focusFor(category: string | undefined): StepFocus {
+  return (category && FOCUS[category]) || { tab: 'gallery', gallery: 'frames' };
+}

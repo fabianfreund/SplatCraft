@@ -32,5 +32,7 @@ export interface ViewerAPI {
   clear(): void;
   /** PNG data URL of the current view. */
   screenshot(): string;
+  /** Pause rendering while hidden (render-on-demand otherwise). */
+  setActive(active: boolean): void;
   dispose(): void;
 }

@@ -44,21 +44,21 @@
 
   --text-*: initial;
   --text-2xs: var(--sc-text-2xs);
-  --text-2xs--line-height: 14px;
+  --text-2xs--line-height: var(--sc-leading-2xs);
   --text-xs: var(--sc-text-xs);
-  --text-xs--line-height: 16px;
+  --text-xs--line-height: var(--sc-leading-xs);
   --text-sm: var(--sc-text-sm);
-  --text-sm--line-height: 18px;
+  --text-sm--line-height: var(--sc-leading-sm);
   --text-md: var(--sc-text-md);
-  --text-md--line-height: 20px;
+  --text-md--line-height: var(--sc-leading-md);
   --text-lg: var(--sc-text-lg);
-  --text-lg--line-height: 22px;
+  --text-lg--line-height: var(--sc-leading-lg);
   --text-xl: var(--sc-text-xl);
-  --text-xl--line-height: 26px;
+  --text-xl--line-height: var(--sc-leading-xl);
   --text-2xl: var(--sc-text-2xl);
-  --text-2xl--line-height: 32px;
+  --text-2xl--line-height: var(--sc-leading-2xl);
   --text-3xl: var(--sc-text-3xl);
-  --text-3xl--line-height: 40px;
+  --text-3xl--line-height: var(--sc-leading-3xl);
 
   --radius-*: initial;
   --radius-xs: var(--sc-radius-xs);
@@ -77,6 +77,19 @@
   --spacing: var(--sc-spacing);
   --ease-out: var(--sc-ease-out);
   --ease-in-out: var(--sc-ease-in-out);
+  --ease-spring: var(--sc-ease-spring);
+  --ease-snap: var(--sc-ease-snap);
+}
+
+@property --sc-fade-top {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+@property --sc-fade-bottom {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
 }
 
 @layer base {
@@ -91,7 +104,7 @@
     color: var(--sc-fg);
     font-family: var(--sc-font-sans);
     font-size: var(--sc-text-sm);
-    line-height: 18px;
+    line-height: var(--sc-leading-sm);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     overflow: hidden;
@@ -120,6 +133,14 @@
   * {
     scrollbar-width: thin;
     scrollbar-color: var(--sc-surface-4) transparent;
+  }
+  /* Scroll areas: the bar shows while scrolling or hovering (see lib/scrollPolish.ts). */
+  .scroll-stable {
+    scrollbar-color: transparent transparent;
+  }
+  .scroll-stable:hover,
+  .scroll-stable[data-scrolling] {
+    scrollbar-color: var(--sc-fg-faint) transparent;
   }
   ::-webkit-scrollbar {
     width: 10px;
@@ -150,6 +171,29 @@
   .scroll-stable {
     overflow-y: auto;
     scrollbar-gutter: stable;
+    /* Soft edge fades only where more content hides (mask colors are alpha-only). */
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--sc-fade-top), #000 calc(100% - var(--sc-fade-bottom)), transparent);
+    mask-image: linear-gradient(to bottom, transparent, #000 var(--sc-fade-top), #000 calc(100% - var(--sc-fade-bottom)), transparent);
+    transition: --sc-fade-top var(--sc-duration-base) ease-out, --sc-fade-bottom var(--sc-duration-base) ease-out;
+  }
+  /* Frosted floating surface (see --sc-glass-* tokens). */
+  .glass {
+    background: var(--sc-glass-bg);
+    border-color: var(--sc-glass-border);
+    box-shadow: var(--sc-glass-highlight), var(--sc-glass-shadow);
+    -webkit-backdrop-filter: var(--sc-glass-blur);
+    backdrop-filter: var(--sc-glass-blur);
+  }
+  /* Tactile press: a quick squish on :active, springing back on release. */
+  .press {
+    transition-property: transform, background-color, color, box-shadow, opacity, filter;
+    transition-duration: var(--sc-duration-spring), var(--sc-duration-fast), var(--sc-duration-fast), var(--sc-duration-fast), var(--sc-duration-fast), var(--sc-duration-fast);
+    transition-timing-function: var(--sc-ease-spring), ease-out, ease-out, ease-out, ease-out, ease-out;
+  }
+  .press:active:not(:disabled) {
+    transform: scale(var(--sc-press-scale));
+    transition-duration: 80ms;
+    transition-timing-function: ease-out;
   }
   .ellipsis {
     overflow: hidden;
@@ -197,6 +241,23 @@
 @keyframes sc-stripes {
   to {
     background-position: 16px 0;
+  }
+}
+@keyframes sc-pop-spring {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.94);
+  }
+}
+@keyframes sc-check-pop {
+  0% {
+    transform: scale(0.4) rotate(-12deg);
+    opacity: 0;
+  }
+}
+@keyframes sc-grow-y {
+  from {
+    transform: scaleY(0);
   }
 }
 @keyframes sc-pulse {

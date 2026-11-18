@@ -1,10 +1,10 @@
-import { Aperture, Camera, Cuboid, Focus, ImageDown, MonitorX, Play, Sparkles, Upload } from 'lucide-react';
+import { Cuboid, MonitorX, Play, Sparkles, Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../../store/app';
 import { pushMessage } from '../../store/messages';
 import { usePipeline } from '../../store/pipeline';
 import { useViewer } from '../../store/viewer';
-import { Badge, Button, Divider, EmptyState, IconButton, Spinner } from '../../ui';
+import { Badge, Button, EmptyState, LoadingOverlay, Spinner } from '../../ui';
 import { SparkViewer } from '../../viewer/SparkViewer';
 import type { ViewerAPI } from '../../viewer/ViewerAPI';
 
@@ -19,7 +19,7 @@ export function ViewerPane() {
   const previews = usePipeline((s) => s.previews);
   const running = usePipeline((s) => s.running);
   const run = usePipeline((s) => s.run);
-  const { layers, setLayer, loading, shownStep, hasContent, set } = useViewer();
+  const { layers, loading, shownStep, hasContent, set } = useViewer();
 
   // Mount once.
   useEffect(() => {
@@ -44,6 +44,10 @@ export function ViewerPane() {
   }, [projectDir, set]);
 
   useEffect(() => viewer.current?.setLayers(layers), [layers]);
+
+  // Render only while visible (the viewer stays mounted behind other views).
+  const visible = useApp((s) => s.tab === 'viewer');
+  useEffect(() => viewer.current?.setActive(visible), [visible]);
 
   // Point cloud.
   const pc = previews.pointcloud;
@@ -87,14 +91,23 @@ export function ViewerPane() {
       });
   }, [sp?.v]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const screenshot = () => {
-    const url = viewer.current?.screenshot();
-    if (!url) return;
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `splatcraft-${Date.now()}.png`;
-    a.click();
-  };
+  // Expose camera commands to the canvas toolbar.
+  useEffect(() => {
+    set({
+      commands: {
+        resetView: () => viewer.current?.resetCamera(),
+        screenshot: () => {
+          const url = viewer.current?.screenshot();
+          if (!url) return;
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `splatcraft-${Date.now()}.png`;
+          a.click();
+        },
+      },
+    });
+    return () => set({ commands: undefined });
+  }, [set]);
 
   return (
     <div className="absolute inset-0 overflow-hidden bg-viewport">
@@ -102,7 +115,7 @@ export function ViewerPane() {
 
       {/* Top-left: live state (fixed slot) */}
       <div className="pointer-events-none absolute left-3 top-3 flex h-6 items-center gap-1.5">
-        {shownStep !== undefined && (
+        {shownStep !== undefined && layers.splat && (
           <Badge tone={running ? 'accent' : 'neutral'} icon={running ? Sparkles : Cuboid} className="tnum h-6 min-w-[124px] px-2 text-xs">
             {running ? 'Live' : 'Splat'} · step {shownStep.toLocaleString()}
           </Badge>
@@ -110,17 +123,8 @@ export function ViewerPane() {
         <span className="flex size-6 items-center justify-center text-fg-muted">{loading && <Spinner size={13} />}</span>
       </div>
 
-      {/* Top-right: toolbar */}
-      {!failed && (
-        <div className="absolute right-3 top-3 flex h-8 items-center gap-0.5 rounded-md border border-line-strong bg-surface-2 px-1 shadow-md">
-          <IconButton icon={Aperture} label="Points" active={layers.points} onClick={() => setLayer('points', !layers.points)} tooltipSide="bottom" />
-          <IconButton icon={Camera} label="Cameras" active={layers.cameras} onClick={() => setLayer('cameras', !layers.cameras)} tooltipSide="bottom" />
-          <IconButton icon={Sparkles} label="Splat" active={layers.splat} onClick={() => setLayer('splat', !layers.splat)} tooltipSide="bottom" />
-          <Divider vertical className="mx-0.5" />
-          <IconButton icon={Focus} label="Reset View" onClick={() => viewer.current?.resetCamera()} tooltipSide="bottom" />
-          <IconButton icon={ImageDown} label="Screenshot" onClick={screenshot} tooltipSide="bottom" />
-        </div>
-      )}
+      {/* First splat of a session: blur + loader. Later hot-swaps only use the small spinner. */}
+      <LoadingOverlay show={loading && shownStep === undefined && layers.splat} label="Loading splat" />
 
       {/* Empty / failure states */}
       {(failed || !hasContent) && (

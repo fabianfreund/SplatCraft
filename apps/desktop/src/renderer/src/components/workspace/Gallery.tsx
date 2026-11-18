@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { formatBytes } from '../../lib/format';
 import { useApp } from '../../store/app';
 import { qualityStepKey, stepStatus, usePipeline } from '../../store/pipeline';
-import { Badge, Button, ChipGroup, EmptyState, ImageTile, Spinner } from '../../ui';
+import { Badge, Button, ChipGroup, EmptyState, ImageTile, SegmentedControl, Spinner } from '../../ui';
 import { SourcesButton } from './SourcesButton';
 import { addSources } from './useDrop';
 import { useFrames } from './useFrames';
@@ -18,7 +18,11 @@ export function Gallery() {
   const frames = useFrames();
   const [filter, setFilter] = useState<Filter>('all');
   const sources = project.meta.sources;
-  const hasFrames = frames.items.length > 0;
+  // Step focus decides the content: Media → input media, other steps → frames.
+  const content = useApp((s) => s.gallery);
+  const setContent = useApp((s) => s.setGallery);
+  const canSwitch = frames.items.length > 0;
+  const hasFrames = content === 'frames' && frames.items.length > 0;
   const scored = frames.canToggle;
 
   const shown = useMemo(
@@ -27,11 +31,24 @@ export function Gallery() {
   );
 
   return (
-    <div className="absolute inset-0 flex flex-col bg-bg">
+    <div className="absolute inset-0 flex flex-col bg-bg" style={{ animation: 'sc-fade-in var(--sc-duration-base) var(--sc-ease-out)' }}>
       {/* Header: fixed height, all slots reserved */}
       <div className="flex h-12 shrink-0 items-center gap-3 px-5">
         <SourcesButton />
-        <div className="ml-auto flex items-center">
+        <ReviewBar kept={frames.kept} rejected={frames.rejected} visible={scored && hasFrames} />
+        <div className="ml-auto flex items-center gap-3">
+          {canSwitch && (
+            <SegmentedControl<'sources' | 'frames'>
+              ariaLabel="Gallery content"
+              size="sm"
+              value={content}
+              onChange={setContent}
+              options={[
+                { value: 'sources', label: 'Media' },
+                { value: 'frames', label: 'Frames' },
+              ]}
+            />
+          )}
           {hasFrames && (
             <ChipGroup<Filter>
               value={filter}
@@ -45,8 +62,7 @@ export function Gallery() {
           )}
         </div>
       </div>
-      <ReviewBar kept={frames.kept} rejected={frames.rejected} visible={scored} />
-      <div className="scroll-stable min-h-0 flex-1 px-5 pb-5">
+      <div className="scroll-stable min-h-0 flex-1 px-5 pb-24">
         {!sources.length ? (
           <div className="flex h-full items-center justify-center">
             <EmptyState
@@ -102,20 +118,20 @@ function ReviewBar({ kept, rejected, visible }: { kept: number; rejected: number
   const qRunning = qKey ? steps[qKey]?.status === 'running' : false;
   const show = visible && !nextDone;
   return (
-    <div className="flex h-11 shrink-0 items-center px-5">
+    <div className="flex h-8 min-w-0 items-center">
       {show && (
         <div
-          className="flex h-9 w-full items-center gap-3 rounded-lg bg-surface-2 pl-3.5 pr-1.5"
+          className="flex h-8 items-center gap-3 rounded-md bg-surface-2 pl-3 pr-1"
           style={{ animation: 'sc-fade-in var(--sc-duration-base) var(--sc-ease-out)' }}
         >
-          <span className="flex w-4 items-center justify-center">{qRunning && <Spinner size={12} />}</span>
-          <span className="tnum text-sm text-fg">
+          <span className="flex w-3 items-center justify-center">{qRunning && <Spinner size={12} />}</span>
+          <span className="tnum whitespace-nowrap text-sm text-fg">
             <span className="inline-block min-w-[24px] text-right font-semibold">{kept}</span> <span className="text-fg-muted">kept</span>
             <span className="mx-2 text-fg-faint">·</span>
             <span className="inline-block min-w-[16px] text-right font-semibold text-danger">{rejected}</span> <span className="text-fg-muted">rejected</span>
           </span>
-          <Button size="sm" variant="primary" icon={Play} className="ml-auto" minWidth={88} disabled={running} onClick={() => void run(undefined, 'all')}>
-            Run all
+          <Button size="sm" variant="primary" icon={Play} minWidth={88} disabled={running} onClick={() => void run(undefined, 'all')}>
+            Continue
           </Button>
         </div>
       )}

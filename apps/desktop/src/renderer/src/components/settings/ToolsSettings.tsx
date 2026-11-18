@@ -1,13 +1,11 @@
 import type { PluginInfo, ToolStatus } from '@shared/api';
 import { Download, Puzzle, RefreshCw, Wrench } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { useApp } from '../../store/app';
 import { pushMessage } from '../../store/messages';
-import { Badge, Button, Dialog, HelpTip, IconButton, Label, ProgressBar, Skeleton, Text, Tooltip } from '../../ui';
+import { Badge, Button, HelpTip, IconButton, Label, ProgressBar, Skeleton, Text, Tooltip } from '../../ui';
 
-export function ToolsDialog() {
-  const open = useApp((s) => s.toolsOpen);
-  const setOpen = useApp((s) => s.setToolsOpen);
+/** Settings → Tools & Add-ons: external programs and installed plugins. */
+export function ToolsSettings() {
   const [tools, setTools] = useState<ToolStatus[] | null>(null);
   const [plugins, setPlugins] = useState<PluginInfo[] | null>(null);
   const [progress, setProgress] = useState<Record<string, { fraction: number; message: string }>>({});
@@ -18,11 +16,10 @@ export function ToolsDialog() {
   }, []);
 
   useEffect(() => {
-    if (!open) return;
     void refresh();
     void window.splatcraft.plugins.list().then(setPlugins);
     return window.splatcraft.tools.onInstallProgress((p) => setProgress((s) => ({ ...s, [p.id]: { fraction: p.fraction, message: p.message } })));
-  }, [open, refresh]);
+  }, [refresh]);
 
   const install = async (id: string) => {
     setProgress((s) => ({ ...s, [id]: { fraction: 0, message: '' } }));
@@ -41,8 +38,7 @@ export function ToolsDialog() {
   };
 
   return (
-    <Dialog open={open} onClose={() => setOpen(false)} title="Tools & Add-ons" width={680} height={560}>
-      <div className="flex flex-col gap-5 p-5">
+    <div className="flex flex-col gap-5">
         <section className="flex flex-col gap-2">
           <div className="flex h-6 items-center gap-1.5">
             <Label>Tools</Label>
@@ -161,7 +157,6 @@ export function ToolsDialog() {
             )}
           </div>
         </section>
-      </div>
-    </Dialog>
+    </div>
   );
 }

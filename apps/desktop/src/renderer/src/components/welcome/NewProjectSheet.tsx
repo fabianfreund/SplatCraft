@@ -76,7 +76,7 @@ export function NewProjectSheet() {
           <TagInput value={tags} onChange={setTags} placeholder="object, outdoor…" />
         </Field>
         {templates.length > 1 && (
-          <Field label="Pipeline" help={templates.find((t) => t.id === template)?.description} stacked>
+          <Field label="Workflow" help={templates.find((t) => t.id === template)?.description} stacked>
             <Select size="md" className="w-full" value={template} options={templates.map((t) => ({ value: t.id, label: t.title }))} onChange={setTemplate} />
           </Field>
         )}

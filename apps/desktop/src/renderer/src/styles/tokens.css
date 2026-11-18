@@ -3,13 +3,30 @@
  * shadows and motion values live. Everything else (ui primitives, feature
  * components, charts, the 3D viewer) reads these variables.
  *
- * To restyle the app, edit this file. A light theme can be added later as
- * `:root[data-theme='light'] { … }` overriding the same variables.
+ * Layers
+ *   1. Inputs     — a handful of values a user can change at runtime
+ *                   (accent, text scale). Set by store/prefs.ts on <html>.
+ *   2. Theme      — surfaces, lines, ink, status, viewer. `data-theme` on <html>.
+ *   3. Derived    — accent tints, focus rings, glows. Computed with color-mix,
+ *                   so changing the accent restyles everything.
+ *   4. Density    — control heights and panel sizes. `data-density` on <html>.
+ *
+ * A custom theme only has to override variables from layers 1–2
+ * (Settings → Appearance → Import theme accepts a JSON map of them).
  */
+
+/* ── 1. Inputs ─────────────────────────────────────────────────────────── */
+:root {
+  --sc-accent: #6cc3b5;
+  --sc-accent-ink: #0c1f1c; /* text on accent fills (computed for custom accents) */
+  --sc-text-scale: 1;
+}
+
+/* ── 2. Theme: dark (default) ──────────────────────────────────────────── */
 :root {
   color-scheme: dark;
 
-  /* ── Surfaces (back → front) ───────────────────────────── */
+  /* Surfaces (back → front) */
   --sc-bg: #0b0c0f;
   --sc-surface-1: #111317;
   --sc-surface-2: #16181d;
@@ -18,94 +35,217 @@
   --sc-overlay: rgb(5 6 8 / 0.62);
   --sc-viewport: #08090b;
 
-  /* ── Lines ─────────────────────────────────────────────── */
+  /* Lines */
   --sc-line: rgb(255 255 255 / 0.065);
   --sc-line-strong: rgb(255 255 255 / 0.11);
-  --sc-line-focus: rgb(60 228 206 / 0.55);
 
-  /* ── Ink ───────────────────────────────────────────────── */
+  /* Ink */
   --sc-fg: #e9ebef;
   --sc-fg-muted: #a1a7b1;
   --sc-fg-subtle: #6d737e;
   --sc-fg-faint: #464b54;
 
-  /* ── Accent (electric teal) ────────────────────────────── */
-  --sc-accent: #3ce4ce;
-  --sc-accent-strong: #5ff0dc;
-  --sc-accent-ink: #03211d; /* text on accent fills */
-  --sc-accent-soft: rgb(60 228 206 / 0.13);
-  --sc-accent-softer: rgb(60 228 206 / 0.07);
-
-  /* ── Status (reserved; never used as series colors) ────── */
+  /* Status (reserved; never used as series colors) */
   --sc-success: #4ad991;
-  --sc-success-soft: rgb(74 217 145 / 0.13);
   --sc-warning: #f2b84b;
-  --sc-warning-soft: rgb(242 184 75 / 0.14);
   --sc-danger: #ff5f6d;
-  --sc-danger-soft: rgb(255 95 109 / 0.14);
   --sc-info: #7aa7ff;
-  --sc-info-soft: rgb(122 167 255 / 0.14);
 
-  /* ── Data viz ──────────────────────────────────────────── */
-  --sc-chart-line: var(--sc-accent);
-  --sc-chart-fill: rgb(60 228 206 / 0.1);
+  /* Data viz */
   --sc-chart-grid: rgb(255 255 255 / 0.05);
-  --sc-chart-axis: var(--sc-fg-subtle);
   --sc-chart-crosshair: rgb(255 255 255 / 0.22);
 
-  /* ── 3D viewer ─────────────────────────────────────────── */
+  /* 3D viewer (plain colors: read by three.js) */
   --sc-viewer-grid: #1b1e24;
   --sc-viewer-grid-center: #262a31;
-  --sc-viewer-camera: #3ce4ce;
   --sc-viewer-points: #c9ced6;
 
-  /* ── Type ──────────────────────────────────────────────── */
+  /* Elevation */
+  --sc-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --sc-shadow-md: 0 6px 20px -6px rgb(0 0 0 / 0.6), 0 0 0 1px var(--sc-line);
+  --sc-shadow-lg: 0 24px 64px -12px rgb(0 0 0 / 0.75), 0 0 0 1px var(--sc-line-strong);
+  --sc-inset-highlight: inset 0 1px 0 rgb(255 255 255 / 0.05);
+}
+
+/* ── 2b. Theme: light ──────────────────────────────────────────────────── */
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --sc-bg: #eceef1;
+  --sc-surface-1: #f7f8fa;
+  --sc-surface-2: #ffffff;
+  --sc-surface-3: #eef0f3;
+  --sc-surface-4: #e2e5ea;
+  --sc-overlay: rgb(20 24 30 / 0.28);
+  --sc-viewport: #d9dce1;
+
+  --sc-line: rgb(15 20 30 / 0.08);
+  --sc-line-strong: rgb(15 20 30 / 0.14);
+
+  --sc-fg: #16191e;
+  --sc-fg-muted: #4b525d;
+  --sc-fg-subtle: #757c88;
+  --sc-fg-faint: #a7adb7;
+
+  --sc-success: #16a35a;
+  --sc-warning: #c27c06;
+  --sc-danger: #e0323f;
+  --sc-info: #2f6fe4;
+
+  --sc-chart-grid: rgb(15 20 30 / 0.06);
+  --sc-chart-crosshair: rgb(15 20 30 / 0.25);
+
+  --sc-viewer-grid: #c5c9d0;
+  --sc-viewer-grid-center: #aeb3bc;
+  --sc-viewer-points: #3a3f47;
+
+  --sc-shadow-sm: 0 1px 2px rgb(15 20 30 / 0.1);
+  --sc-shadow-md: 0 6px 20px -6px rgb(15 20 30 / 0.18), 0 0 0 1px var(--sc-line);
+  --sc-shadow-lg: 0 24px 64px -12px rgb(15 20 30 / 0.28), 0 0 0 1px var(--sc-line-strong);
+  --sc-inset-highlight: inset 0 1px 0 rgb(255 255 255 / 0.6);
+}
+
+/* ── 3. Derived (never edit per theme) ─────────────────────────────────── */
+:root {
+  --sc-accent-strong: color-mix(in oklab, var(--sc-accent) 88%, white);
+  --sc-accent-soft: color-mix(in srgb, var(--sc-accent) 14%, transparent);
+  --sc-accent-softer: color-mix(in srgb, var(--sc-accent) 7%, transparent);
+  --sc-line-focus: color-mix(in srgb, var(--sc-accent) 55%, transparent);
+
+  --sc-success-soft: color-mix(in srgb, var(--sc-success) 14%, transparent);
+  --sc-warning-soft: color-mix(in srgb, var(--sc-warning) 15%, transparent);
+  --sc-danger-soft: color-mix(in srgb, var(--sc-danger) 14%, transparent);
+  --sc-info-soft: color-mix(in srgb, var(--sc-info) 14%, transparent);
+
+  --sc-chart-line: var(--sc-accent);
+  --sc-chart-fill: color-mix(in srgb, var(--sc-accent) 10%, transparent);
+  --sc-chart-axis: var(--sc-fg-subtle);
+  --sc-viewer-camera: var(--sc-accent);
+
+  --sc-shadow-glow: 0 0 0 1px color-mix(in srgb, var(--sc-accent) 30%, transparent),
+    0 6px 20px -8px color-mix(in srgb, var(--sc-accent) 30%, transparent);
+}
+
+/* ── Type ──────────────────────────────────────────────────────────────── */
+:root {
   --sc-font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI Variable Text', 'Segoe UI', Inter, system-ui,
     sans-serif;
   --sc-font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI Variable Display', 'Segoe UI', Inter,
     system-ui, sans-serif;
   --sc-font-mono: ui-monospace, 'SF Mono', SFMono-Regular, 'Cascadia Code', Menlo, Consolas, monospace;
 
-  --sc-text-2xs: 10.5px;
-  --sc-text-xs: 11.5px;
-  --sc-text-sm: 12.5px;
-  --sc-text-md: 13.5px;
-  --sc-text-lg: 15px;
-  --sc-text-xl: 19px;
-  --sc-text-2xl: 26px;
-  --sc-text-3xl: 34px;
+  --sc-text-2xs: calc(10.5px * var(--sc-text-scale));
+  --sc-text-xs: calc(11.5px * var(--sc-text-scale));
+  --sc-text-sm: calc(12.5px * var(--sc-text-scale));
+  --sc-text-md: calc(13.5px * var(--sc-text-scale));
+  --sc-text-lg: calc(15px * var(--sc-text-scale));
+  --sc-text-xl: calc(19px * var(--sc-text-scale));
+  --sc-text-2xl: calc(26px * var(--sc-text-scale));
+  --sc-text-3xl: calc(34px * var(--sc-text-scale));
 
-  /* ── Radii ─────────────────────────────────────────────── */
+  --sc-leading-2xs: calc(14px * var(--sc-text-scale));
+  --sc-leading-xs: calc(16px * var(--sc-text-scale));
+  --sc-leading-sm: calc(18px * var(--sc-text-scale));
+  --sc-leading-md: calc(20px * var(--sc-text-scale));
+  --sc-leading-lg: calc(22px * var(--sc-text-scale));
+  --sc-leading-xl: calc(26px * var(--sc-text-scale));
+  --sc-leading-2xl: calc(32px * var(--sc-text-scale));
+  --sc-leading-3xl: calc(40px * var(--sc-text-scale));
+}
+
+/* ── Glass (floating chrome: canvas toolbar, menus, tooltips) ──────────── */
+:root {
+  --sc-glass-bg: rgb(28 31 37 / 0.72);
+  --sc-glass-border: rgb(255 255 255 / 0.07);
+  --sc-glass-highlight: inset 0 1px 0 rgb(255 255 255 / 0.05);
+  --sc-glass-shadow: 0 12px 32px -10px rgb(0 0 0 / 0.6), 0 2px 6px -2px rgb(0 0 0 / 0.35);
+  --sc-glass-blur: blur(18px) saturate(1.6);
+}
+:root[data-theme='light'] {
+  --sc-glass-bg: rgb(255 255 255 / 0.72);
+  --sc-glass-border: rgb(15 20 30 / 0.1);
+  --sc-glass-highlight: inset 0 1px 0 rgb(255 255 255 / 0.8);
+  --sc-glass-shadow: 0 12px 32px -10px rgb(15 20 30 / 0.22), 0 2px 6px -2px rgb(15 20 30 / 0.1);
+}
+/* Reduce transparency: solid surfaces, no blur. */
+:root[data-glass='off'] {
+  --sc-glass-bg: var(--sc-surface-3);
+  --sc-glass-border: var(--sc-line-strong);
+  --sc-glass-blur: none;
+}
+
+/* ── Radii ─────────────────────────────────────────────────────────────── */
+:root {
   --sc-radius-xs: 4px;
   --sc-radius-sm: 6px;
   --sc-radius-md: 8px;
   --sc-radius-lg: 11px;
   --sc-radius-xl: 16px;
   --sc-radius-full: 999px;
+}
 
-  /* ── Sizes (fixed boxes → no layout shift) ─────────────── */
+/* ── 4. Density: sizes are fixed boxes → no layout shift ───────────────── */
+:root {
   --sc-spacing: 4px;
   --sc-control-h-sm: 24px;
   --sc-control-h: 28px;
   --sc-control-h-lg: 40px;
+  --sc-row-h: 52px;
   --sc-topbar-h: 48px;
   --sc-dock-h: 36px;
   --sc-dock-expanded-h: 260px;
   --sc-rail-w: 264px;
-  --sc-drawer-w: 340px;
+  --sc-drawer-w: 320px;
   --sc-traffic-lights-w: 84px;
+}
+:root[data-density='compact'] {
+  --sc-control-h-sm: 22px;
+  --sc-control-h: 26px;
+  --sc-control-h-lg: 34px;
+  --sc-row-h: 42px;
+  --sc-topbar-h: 42px;
+  --sc-dock-h: 32px;
+  --sc-rail-w: 240px;
+  --sc-drawer-w: 300px;
+}
+:root[data-density='comfortable'] {
+  --sc-control-h-sm: 26px;
+  --sc-control-h: 32px;
+  --sc-control-h-lg: 44px;
+  --sc-row-h: 58px;
+  --sc-topbar-h: 52px;
+  --sc-dock-h: 40px;
+  --sc-rail-w: 288px;
+  --sc-drawer-w: 360px;
+}
 
-  /* ── Shadows ───────────────────────────────────────────── */
-  --sc-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
-  --sc-shadow-md: 0 6px 20px -6px rgb(0 0 0 / 0.6), 0 0 0 1px var(--sc-line);
-  --sc-shadow-lg: 0 24px 64px -12px rgb(0 0 0 / 0.75), 0 0 0 1px var(--sc-line-strong);
-  --sc-shadow-glow: 0 0 0 1px rgb(60 228 206 / 0.35), 0 6px 24px -6px rgb(60 228 206 / 0.45);
-  --sc-inset-highlight: inset 0 1px 0 rgb(255 255 255 / 0.05);
-
-  /* ── Motion ────────────────────────────────────────────── */
+/* ── Motion ──────────────────────────────────────────────────────────────
+ * Fast and physical: transform/opacity only, ≤ 260ms, no long tails.
+ * `spring` settles with a hint of overshoot (indicators, knobs, pops);
+ * `snap` is a critically damped spring for things that must not wobble.
+ */
+:root {
   --sc-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --sc-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --sc-ease-spring: linear(0, 0.009, 0.035 2.1%, 0.141 4.4%, 0.723 12.9%, 0.938 16.7%, 1.017 19.4%, 1.077, 1.121 24.6%, 1.149 28.1%, 1.159 31.7%, 1.153 35.5%, 1.096 44.4%, 1.04 51.7%, 1.011 56.3%, 0.993 61.1%, 0.986 66.9%, 0.996 81.6%, 1);
+  --sc-ease-snap: linear(0, 0.157 3.6%, 0.534 10.4%, 0.787 17.3%, 0.918 24.2%, 0.975 31.1%, 0.996 41.6%, 1);
   --sc-duration-fast: 120ms;
   --sc-duration-base: 200ms;
   --sc-duration-slow: 360ms;
+  --sc-duration-spring: 420ms; /* springs look fast: most travel happens in the first ~120ms */
+  --sc-press-scale: 0.96;
+}
+:root[data-motion='reduced'] {
+  --sc-duration-fast: 0ms;
+  --sc-duration-base: 0ms;
+  --sc-duration-slow: 0ms;
+  --sc-duration-spring: 0ms;
+  --sc-press-scale: 1;
+}
+:root[data-motion='reduced'] *,
+:root[data-motion='reduced'] *::before,
+:root[data-motion='reduced'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
 }

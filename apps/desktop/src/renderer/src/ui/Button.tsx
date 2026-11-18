@@ -44,8 +44,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       type="button"
       disabled={disabled || loading}
       className={cn(
-        'no-drag relative inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap border border-transparent font-medium outline-none',
-        'transition-[background-color,color,box-shadow,filter] duration-150 ease-out disabled:cursor-not-allowed',
+        'press no-drag relative inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap border border-transparent font-medium outline-none disabled:cursor-not-allowed',
         variantCls[variant],
         sizeCls[size],
         className,
@@ -92,7 +91,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
         aria-label={label}
         aria-pressed={active}
         className={cn(
-          'no-drag inline-flex shrink-0 items-center justify-center border outline-none transition-colors duration-150 disabled:cursor-not-allowed disabled:text-fg-faint',
+          'press no-drag inline-flex shrink-0 items-center justify-center border outline-none disabled:cursor-not-allowed disabled:text-fg-faint',
           ibSize[size],
           variant === 'secondary' ? 'border-line-strong bg-surface-3 hover:bg-surface-4' : 'border-transparent hover:bg-surface-3',
           active ? 'bg-accent-soft text-accent hover:bg-accent-soft' : 'text-fg-muted hover:text-fg',

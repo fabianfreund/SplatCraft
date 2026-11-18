@@ -2,7 +2,8 @@ import { RotateCw, SlidersHorizontal } from 'lucide-react';
 import { formatDuration, formatStat, humanize } from '../../lib/format';
 import { shortTitle } from '../../lib/steps';
 import { alternativesFor, descriptorFor, effectiveSelectedKey, stepStatus, usePipeline } from '../../store/pipeline';
-import { Button, EmptyState, Field, HelpTip, Label, Select, StatusChip, Switch, Text } from '../../ui';
+import { PANEL_LIMITS, usePrefs } from '../../store/prefs';
+import { Button, EmptyState, ResizeHandle, Field, HelpTip, Label, Select, StatusChip, Switch, Text } from '../../ui';
 import { ParamForm } from '../params/ParamForm';
 
 /** Advanced-mode drawer: parameters of the selected step. */
@@ -20,9 +21,11 @@ export function StepDrawer() {
   const alts = st ? alternativesFor(stages, st.stageId) : [];
   const { status, rt, stats } = st ? stepStatus({ steps, plan }, st.key, st.enabled) : { status: 'idle' as const, rt: undefined, stats: undefined };
   const idx = spec && st ? spec.steps.indexOf(st) + 1 : 0;
+  const setPrefs = usePrefs((s) => s.set);
 
   return (
-    <aside className="flex w-[var(--sc-drawer-w)] shrink-0 flex-col border-l border-line bg-surface-1" style={{ animation: 'sc-fade-in var(--sc-duration-base) var(--sc-ease-out)' }}>
+    <aside className="relative flex w-[var(--sc-drawer-w)] shrink-0 flex-col border-l border-line bg-surface-1" style={{ animation: 'sc-fade-in var(--sc-duration-base) var(--sc-ease-out)' }}>
+      <ResizeHandle edge="left" min={PANEL_LIMITS.drawer[0]} max={PANEL_LIMITS.drawer[1]} onResize={(drawerW) => setPrefs({ drawerW })} onReset={() => setPrefs({ drawerW: undefined })} />
       {!st || !spec ? (
         <EmptyState icon={SlidersHorizontal} title="No Step Selected" className="flex-1" />
       ) : (
@@ -40,25 +43,24 @@ export function StepDrawer() {
             </span>
           </header>
           <div className="scroll-stable flex min-h-0 flex-1 flex-col gap-4 px-4 pb-4">
-            {/* Stats: reserved block */}
+            {/* Results: reserved block, dashes until the step has run */}
             <div className="grid min-h-[44px] grid-cols-3 gap-2 rounded-lg bg-surface-2 p-2.5">
-              {stats
-                ? Object.entries(stats)
-                    .filter(([k]) => !k.startsWith('rejected_'))
-                    .slice(0, 6)
-                    .map(([k, v]) => (
-                      <div key={k} className="flex min-w-0 flex-col">
-                        <span className="tnum ellipsis text-sm font-medium text-fg">{formatStat(v)}</span>
-                        <span className="ellipsis text-2xs text-fg-subtle">{humanize(k)}</span>
-                      </div>
-                    ))
-                : null}
-              {rt?.durationMs !== undefined && (
-                <div className="flex flex-col">
-                  <span className="tnum text-sm font-medium text-fg">{formatDuration(rt.durationMs)}</span>
-                  <span className="text-2xs text-fg-subtle">Time</span>
-                </div>
-              )}
+              {(() => {
+                const entries = stats ? Object.entries(stats).filter(([k]) => !k.startsWith('rejected_')).slice(0, 5) : [];
+                const cells: [string, string][] = entries.map(([k, v]) => [humanize(k), formatStat(v)]);
+                if (rt?.durationMs !== undefined) cells.push(['Time', formatDuration(rt.durationMs)]);
+                else if (status === 'running') {
+                  if (rt?.fraction !== undefined) cells.push(['Progress', `${Math.round(rt.fraction * 100)}%`]);
+                  if (rt?.startedAt) cells.push(['Elapsed', formatDuration(Date.now() - rt.startedAt)]);
+                }
+                if (!cells.length) cells.push(['Result', '—'], ['Time', '—']);
+                return cells.map(([label, value], i) => (
+                  <div key={i} className="flex min-w-0 flex-col">
+                    <span className={`tnum ellipsis text-sm font-medium ${value === '—' ? 'text-fg-faint' : 'text-fg'}`}>{value}</span>
+                    <span className="ellipsis text-2xs text-fg-subtle">{label}</span>
+                  </div>
+                ));
+              })()}
             </div>
             <div className="flex flex-col gap-1">
               <Label>Step</Label>

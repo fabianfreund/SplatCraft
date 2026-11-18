@@ -21,7 +21,7 @@ export function ChipGroup<T extends string>({ value, chips, onChange }: { value:
             aria-checked={active}
             onClick={() => onChange(c.value)}
             className={cn(
-              'inline-flex h-[26px] items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium outline-none transition-colors duration-150',
+              'press inline-flex h-[26px] items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium outline-none',
               active ? 'border-line-strong bg-surface-4 text-fg' : 'border-transparent text-fg-subtle hover:bg-surface-2 hover:text-fg-muted',
             )}
           >

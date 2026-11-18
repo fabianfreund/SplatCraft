@@ -37,7 +37,7 @@ export function Dialog({ open, onClose, title, help, width = 520, children, foot
         role="dialog"
         aria-modal
         className={cn('flex max-h-[calc(100vh-80px)] flex-col overflow-hidden border border-line-strong bg-surface-2 shadow-lg', sheet ? 'rounded-b-xl rounded-t-md' : 'rounded-xl')}
-        style={{ width, height, animation: `${sheet ? 'sc-sheet-in' : 'sc-pop-in'} var(--sc-duration-slow) var(--sc-ease-out)` }}
+        style={{ width, height, animation: `${sheet ? 'sc-sheet-in' : 'sc-pop-spring'} var(--sc-duration-spring) var(--sc-ease-spring)` }}
       >
         {title && (
           <header className="flex h-12 shrink-0 items-center gap-1.5 border-b border-line px-4">

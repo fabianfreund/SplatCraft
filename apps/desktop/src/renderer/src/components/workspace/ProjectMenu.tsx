@@ -21,7 +21,7 @@ export function ProjectMenu() {
   };
   return (
     <>
-      <Button ref={anchor} variant="ghost" size="sm" trailing={<ChevronDown size={12} className="text-fg-subtle" />} onClick={() => setOpen(!open)} className="max-w-[240px]">
+      <Button ref={anchor} variant="ghost" size="sm" trailing={<ChevronDown size={12} className="text-fg-subtle" />} onClick={() => setOpen(!open)} className="max-w-[200px]">
         <span className="ellipsis text-sm font-semibold text-fg">{project.meta.name}</span>
       </Button>
       <Popover open={open} onClose={() => setOpen(false)} anchor={anchor} width={340}>

@@ -2,6 +2,7 @@ import { AlertTriangle, ChevronUp, Circle, CircleCheck, CircleX } from 'lucide-r
 import { useEffect, useMemo, useState } from 'react';
 import { formatClock } from '../../lib/format';
 import { useApp } from '../../store/app';
+import { usePrefs } from '../../store/prefs';
 import { hw, SPARK_WINDOW, useMonitor } from '../../store/monitor';
 import { descriptorFor, usePipeline } from '../../store/pipeline';
 import { Badge, cn, Divider, IconButton, Meter, ProgressBar, Tooltip } from '../../ui';
@@ -79,6 +80,9 @@ function RunStatus() {
 }
 
 function HardwareMeters() {
+  const advanced = useApp((s) => s.mode === 'advanced');
+  const pref = usePrefs((s) => s.dockMeters);
+  const all = pref === 'all' || (pref === 'auto' && advanced);
   const samples = useMonitor((s) => s.samples);
   const latest = useMonitor((s) => s.latest);
   const recent = useMemo(() => samples.slice(-SPARK_WINDOW), [samples]);
@@ -107,14 +111,14 @@ function HardwareMeters() {
             tone={vramWarn ? 'warning' : 'accent'}
           />
         )}
-        {g?.temperatureC !== undefined && <Meter label="Temp" value={fmt(g.temperatureC)} unit="°C" valueWidth={40} />}
-        {g?.powerW !== undefined && (
+        {all && g?.temperatureC !== undefined && <Meter label="Temp" value={fmt(g.temperatureC)} unit="°C" valueWidth={40} />}
+        {all && g?.powerW !== undefined && (
           <span className="flex h-full max-[1500px]:hidden">
             <Meter label="Power" value={fmt(g.powerW)} unit="W" valueWidth={40} />
           </span>
         )}
-        {latest.cpu && <Meter label="CPU" value={fmt(latest.cpu.utilization)} unit="%" valueWidth={34} series={series(hw.cpu)} min={0} max={100} tooltip={latest.cpu.model} />}
-        {latest.memory && <Meter label="RAM" value={`${fmt(hw.ramGB(latest), 1)}/${fmt(latest.memory.totalMB / 1024, 0)}`} unit="GB" valueWidth={66} series={series(hw.ramPct)} min={0} max={100} />}
+        {all && latest.cpu && <Meter label="CPU" value={fmt(latest.cpu.utilization)} unit="%" valueWidth={34} series={series(hw.cpu)} min={0} max={100} tooltip={latest.cpu.model} />}
+        {all && latest.memory && <Meter label="RAM" value={`${fmt(hw.ramGB(latest), 1)}/${fmt(latest.memory.totalMB / 1024, 0)}`} unit="GB" valueWidth={66} series={series(hw.ramPct)} min={0} max={100} />}
         {diskGB !== undefined && <Meter label="Disk" value={fmt(diskGB, 0)} unit="GB" valueWidth={44} tone={diskWarn ? 'danger' : 'accent'} tooltip={latest.disk?.path} />}
       </div>
       {/* Warnings live in a reserved slot */}

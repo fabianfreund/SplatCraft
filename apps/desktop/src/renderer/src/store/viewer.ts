@@ -14,6 +14,8 @@ interface ViewerState {
   shownStep?: number;
   hasContent: boolean;
   error?: string;
+  /** Registered by the mounted viewer so toolbars can drive it. */
+  commands?: { resetView(): void; screenshot(): void };
   setLayer(k: keyof Layers, v: boolean): void;
   set(p: Partial<Omit<ViewerState, 'set' | 'setLayer'>>): void;
 }

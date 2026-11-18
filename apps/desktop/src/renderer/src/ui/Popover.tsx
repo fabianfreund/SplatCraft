@@ -43,8 +43,8 @@ export function Popover({ open, onClose, anchor, children, width = 320, align = 
   return createPortal(
     <div
       ref={ref}
-      className={cn('no-drag fixed z-[950] max-h-[70vh] overflow-y-auto rounded-lg border border-line-strong bg-surface-2 shadow-lg', className)}
-      style={{ left: pos?.x ?? -9999, top: pos?.y ?? -9999, width, visibility: pos ? 'visible' : 'hidden', animation: 'sc-pop-in var(--sc-duration-base) var(--sc-ease-out)' }}
+      className={cn('glass no-drag fixed z-[950] max-h-[70vh] overflow-y-auto rounded-xl border', className)}
+      style={{ left: pos?.x ?? -9999, top: pos?.y ?? -9999, width, visibility: pos ? 'visible' : 'hidden', animation: 'sc-pop-spring var(--sc-duration-spring) var(--sc-ease-spring)', transformOrigin: align === 'end' ? 'top right' : 'top left' }}
     >
       {children}
     </div>,

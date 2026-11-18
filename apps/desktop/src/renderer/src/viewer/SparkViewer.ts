@@ -67,6 +67,18 @@ export class SparkViewer implements ViewerAPI {
   private layers: ViewerLayers = { points: true, cameras: true, splat: true };
   private ro: ResizeObserver;
   private disposed = false;
+  private grid?: THREE.GridHelper;
+  /** Render-on-demand budget: frames left to draw (Spark sorts asynchronously, so a change needs a short tail). */
+  private frames = 0;
+  private active = true;
+  /**
+   * Splat layer fades via opacity instead of `visible`. Toggling `visible` makes Spark regenerate
+   * every splat when it returns (a multi-second stall on big scenes, e.g. Align → Train). Keeping it
+   * warm costs GPU only while frames render, which is on demand (orbit / changes), never when idle.
+   */
+  private splatOpacity = 1;
+  private splatTarget = 1;
+  private onTheme = () => this.applyTheme();
 
   constructor(private container: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, powerPreference: 'high-performance' });
@@ -90,12 +102,8 @@ export class SparkViewer implements ViewerAPI {
     this.controls.screenSpacePanning = true;
     this.controls.zoomToCursor = true;
 
-    const grid = new THREE.GridHelper(24, 48, token('--sc-viewer-grid-center', '#262a31'), token('--sc-viewer-grid', '#1b1e24'));
-    (grid.material as THREE.Material).transparent = true;
-    (grid.material as THREE.Material).opacity = 0.9;
-    (grid.material as THREE.Material).depthWrite = false;
-    grid.renderOrder = -1; // draw first so splats blend over it
-    this.scene.add(grid);
+    this.applyTheme();
+    window.addEventListener('sc-theme-change', this.onTheme);
 
     this.content.rotation.x = Math.PI;
     this.scene.add(this.content);
@@ -103,10 +111,32 @@ export class SparkViewer implements ViewerAPI {
     this.ro = new ResizeObserver(() => this.resize());
     this.ro.observe(container);
     this.resize();
+    this.controls.addEventListener('change', () => this.invalidate());
+    this.splatTarget = this.splatOpacity = this.layers.splat ? 1 : 0;
     this.renderer.setAnimationLoop(() => {
-      this.controls.update();
+      if (!this.active) return;
+      if (this.controls.update()) this.invalidate();
+      if (this.splatOpacity !== this.splatTarget) {
+        const step = 1 / 13; // ~220ms at 60fps
+        this.splatOpacity = this.splatTarget > this.splatOpacity ? Math.min(this.splatTarget, this.splatOpacity + step) : Math.max(this.splatTarget, this.splatOpacity - step);
+        if (this.splat) this.splat.opacity = this.splatOpacity;
+        this.invalidate(30);
+      }
+      if (this.frames <= 0) return;
+      this.frames--;
       this.renderer.render(this.scene, this.camera);
     });
+  }
+
+  /** Request frames (orbit, content or layer change). */
+  invalidate(frames = 90) {
+    this.frames = Math.max(this.frames, frames);
+  }
+
+  /** Pause rendering entirely while the viewer is hidden behind another view. */
+  setActive(active: boolean) {
+    this.active = active;
+    if (active) this.invalidate();
   }
 
   private resize() {
@@ -115,6 +145,7 @@ export class SparkViewer implements ViewerAPI {
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    this.invalidate();
   }
 
   async loadSplat(src: SplatSource): Promise<void> {
@@ -130,7 +161,8 @@ export class SparkViewer implements ViewerAPI {
       mesh.dispose();
       return;
     }
-    mesh.visible = this.layers.splat;
+    mesh.opacity = this.splatOpacity;
+    this.invalidate(120);
     this.content.add(mesh);
     const old = this.splat;
     this.splat = mesh;
@@ -142,6 +174,7 @@ export class SparkViewer implements ViewerAPI {
       await wait(120);
       this.content.remove(old);
       old.dispose();
+      this.invalidate();
     }
   }
 
@@ -167,6 +200,7 @@ export class SparkViewer implements ViewerAPI {
     pts.visible = this.layers.points;
     this.removePoints();
     this.points = pts;
+    this.invalidate(120);
     this.content.add(pts);
     if (!this.framed) {
       const pos = geom.getAttribute('position');
@@ -188,6 +222,7 @@ export class SparkViewer implements ViewerAPI {
   }
 
   setCameras(cameras: CameraPose[]): void {
+    this.invalidate();
     this.removeCameras();
     if (!cameras.length) return;
     const scale = (this.bounds?.radius ?? 1) * 0.035;
@@ -220,20 +255,23 @@ export class SparkViewer implements ViewerAPI {
     }
     const geom = new THREE.BufferGeometry();
     geom.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
-    const mat = new THREE.LineBasicMaterial({ color: token('--sc-viewer-camera', '#3ce4ce'), transparent: true, opacity: 0.75 });
+    const mat = new THREE.LineBasicMaterial({ color: token('--sc-viewer-camera', '#6cc3b5'), transparent: true, opacity: 0.75 });
     this.cameraGizmos = new THREE.LineSegments(geom, mat);
     this.cameraGizmos.visible = this.layers.cameras;
+    this.invalidate(120);
     this.content.add(this.cameraGizmos);
   }
 
   setLayers(layers: ViewerLayers): void {
     this.layers = layers;
-    if (this.splat) this.splat.visible = layers.splat;
+    this.splatTarget = layers.splat ? 1 : 0;
     if (this.points) this.points.visible = layers.points;
     if (this.cameraGizmos) this.cameraGizmos.visible = layers.cameras;
+    this.invalidate();
   }
 
   resetCamera(): void {
+    this.invalidate();
     if (this.splat) this.frameFromSplat(this.splat);
     else if (this.bounds) this.applyBounds(this.bounds);
     else {
@@ -243,6 +281,7 @@ export class SparkViewer implements ViewerAPI {
   }
 
   clear(): void {
+    this.invalidate();
     this.splatToken++;
     this.pointsToken++;
     if (this.splat) {
@@ -263,6 +302,7 @@ export class SparkViewer implements ViewerAPI {
 
   dispose(): void {
     this.disposed = true;
+    window.removeEventListener('sc-theme-change', this.onTheme);
     this.renderer.setAnimationLoop(null);
     this.ro.disconnect();
     this.clear();
@@ -272,6 +312,26 @@ export class SparkViewer implements ViewerAPI {
   }
 
   /* ---------------------------------------------------------------- */
+
+  /** Re-reads the viewer tokens (theme or accent changed). */
+  private applyTheme() {
+    this.invalidate();
+    this.renderer.setClearColor(token('--sc-viewport', '#08090b'));
+    if (this.grid) {
+      this.scene.remove(this.grid);
+      this.grid.dispose();
+    }
+    const grid = new THREE.GridHelper(24, 48, token('--sc-viewer-grid-center', '#262a31'), token('--sc-viewer-grid', '#1b1e24'));
+    (grid.material as THREE.Material).transparent = true;
+    (grid.material as THREE.Material).opacity = 0.9;
+    (grid.material as THREE.Material).depthWrite = false;
+    grid.renderOrder = -1; // draw first so splats blend over it
+    this.scene.add(grid);
+    this.grid = grid;
+    if (this.cameraGizmos) (this.cameraGizmos.material as THREE.LineBasicMaterial).color = token('--sc-viewer-camera', '#6cc3b5');
+    const pm = this.points?.material as THREE.PointsMaterial | undefined;
+    if (pm && !pm.vertexColors) pm.color = token('--sc-viewer-points', '#c9ced6');
+  }
 
   private frameFromSplat(mesh: SplatMesh) {
     const xs: number[] = [];

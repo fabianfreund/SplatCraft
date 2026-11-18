@@ -15,7 +15,7 @@ const fill = { accent: 'bg-accent', success: 'bg-success', warning: 'bg-warning'
 export function ProgressBar({ value, tone = 'accent', height = 4, className, active }: ProgressBarProps) {
   const indeterminate = value === undefined;
   return (
-    <div className={cn('relative w-full overflow-hidden rounded-full bg-surface-4', className)} style={{ height }} role="progressbar" aria-valuenow={value}>
+    <div className={cn('relative w-full overflow-hidden rounded-full bg-surface-4', className)} style={{ height }} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={value === undefined ? undefined : Math.round(value * 100)}>
       <div
         className={cn('absolute inset-y-0 left-0 w-full origin-left rounded-full transition-transform duration-300 ease-out', fill[tone])}
         style={{
