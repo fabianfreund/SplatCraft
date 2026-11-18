@@ -485,7 +485,7 @@ export function createMockApi(): SplatCraftAPI {
 
   const api: SplatCraftAPI = {
     app: {
-      info: () => delay<AppInfo>({ version: '0.1.1', platform: 'darwin', arch: 'arm64', electron: '45.3.3' }),
+      info: () => delay<AppInfo>({ version: '0.1.2', platform: 'darwin', arch: 'arm64', electron: '45.3.3' }),
       fileUrl: (p) => {
         const hit = files.get(p);
         if (hit) return hit;
