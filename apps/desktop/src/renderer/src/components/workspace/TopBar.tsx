@@ -3,6 +3,7 @@ import { useApp, VIEWS, type UiMode, type WorkspaceTab } from '../../store/app';
 import { descriptorFor, effectiveSelectedKey, usePipeline } from '../../store/pipeline';
 import { shortTitle } from '../../lib/steps';
 import { Button, Divider, IconButton, SegmentedControl } from '../../ui';
+import { AppMark } from '../AppMark';
 import { MessagesButton } from './MessagesButton';
 import { ProjectMenu } from './ProjectMenu';
 
@@ -33,6 +34,7 @@ export function TopBar() {
   return (
     <header className="drag relative flex h-[var(--sc-topbar-h)] shrink-0 items-center gap-2 border-b border-line bg-surface-1 pr-3" style={{ paddingLeft: isMac ? 'var(--sc-traffic-lights-w)' : 12 }}>
       <div className="flex min-w-0 flex-1 basis-0 items-center gap-2">
+        <AppMark size={22} />
         <ProjectMenu />
         <Divider vertical className="mx-0.5 h-4" />
         <SegmentedControl<UiMode>
