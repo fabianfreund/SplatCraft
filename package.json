@@ -1,7 +1,7 @@
 {
   "name": "splatcraft",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Cross-platform Gaussian Splatting studio",
   "license": "MIT",
   "packageManager": "pnpm@9.15.2",
@@ -10,6 +10,19 @@
     "build": "pnpm --filter @splatcraft/desktop build",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
-    "cli": "pnpm --filter @splatcraft/cli start"
+    "cli": "pnpm --filter @splatcraft/cli start",
+    "release:mac": "./scripts/release-mac.sh"
+  },
+  "pnpm": {
+    "supportedArchitectures": {
+      "os": [
+        "current"
+      ],
+      "cpu": [
+        "current",
+        "x64",
+        "arm64"
+      ]
+    }
   }
 }

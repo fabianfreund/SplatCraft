@@ -17,6 +17,9 @@ importers:
         specifier: ^4.6.7
         version: 4.6.7
     devDependencies:
+      '@sparkjsdev/spark':
+        specifier: ^2.4.0
+        version: 2.4.0(three@0.187.0)
       '@splatcraft/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -26,9 +29,6 @@ importers:
       '@splatcraft/toolchain':
         specifier: workspace:*
         version: link:../../packages/toolchain
-      '@sparkjsdev/spark':
-        specifier: ^2.4.0
-        version: 2.4.0(three@0.187.0)
       '@tailwindcss/vite':
         specifier: ^4.3.5
         version: 4.3.5(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
@@ -51,7 +51,7 @@ importers:
         specifier: ^2.1.1
         version: 2.1.1
       electron:
-        specifier: ^45.3.3
+        specifier: 45.3.3
         version: 45.3.3
       electron-builder:
         specifier: ^26.18.0

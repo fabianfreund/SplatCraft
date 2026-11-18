@@ -32,9 +32,21 @@ mac:
       arch: [arm64, x64]
   hardenedRuntime: true
   darkModeSupport: true
-  notarize: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  # Signing identity comes from CSC_NAME (see scripts/release-mac.sh).
+  # Notarization runs when APPLE_KEYCHAIN_PROFILE or APPLE_ID/APPLE_APP_SPECIFIC_PASSWORD/APPLE_TEAM_ID is set.
+  notarize: true
 dmg:
   artifactName: ${productName}-${version}-${arch}.${ext}
+  sign: false
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
 win:
   target:
     - target: nsis
