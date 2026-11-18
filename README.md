@@ -4,7 +4,7 @@
 
 **A free, open-source Gaussian Splatting studio.** Drop in photos or videos and get a 3D splat. SplatCraft extracts and filters frames, aligns the cameras, trains the splat with a live preview, and exports it, all on your own machine.
 
-![SplatCraft](docs/design/screenshots/after/04-advanced-training.png)
+![SplatCraft: Edit step with ground plane and scale on a trained splat](docs/assets/screenshot-edit.png)
 
 > **Status:** early prototype (v0.1.x). Tested on macOS (Apple Silicon). Windows and Linux are wired up but untested.
 

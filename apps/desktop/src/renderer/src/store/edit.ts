@@ -12,6 +12,7 @@ import { load, save } from './persist';
 import { descriptorFor, usePipeline } from './pipeline';
 
 export type EditTool = 'ground' | 'measure';
+export type Overlay = 'ground' | 'scale';
 
 /** Points each tool needs. */
 export const TOOL_POINTS: Record<EditTool, number> = { ground: 3, measure: 2 };
@@ -55,6 +56,9 @@ interface EditState {
   pendingScale?: { a: Vec3; b: Vec3 };
   /** Last unit the user typed a length in. */
   unit: LengthUnit;
+  /** Which saved overlays are drawn in the 3D view. */
+  overlays: Record<Overlay, boolean>;
+  toggleOverlay(k: Overlay): void;
   setTool(tool: EditTool | null): void;
   addPoint(hit: PickHit): void;
   /** Remove the last picked point (or leave the tool when there is none). */
@@ -70,6 +74,12 @@ export const useEdit = create<EditState>()((set, get) => ({
   draft: [],
   eyes: [],
   unit: load<LengthUnit>('editUnit', 'cm'),
+  overlays: load<Record<Overlay, boolean>>('editOverlays', { ground: true, scale: true }),
+  toggleOverlay(k) {
+    const overlays = { ...get().overlays, [k]: !get().overlays[k] };
+    save('editOverlays', overlays);
+    set({ overlays });
+  },
   setTool: (tool) => set({ tool, draft: [], eyes: [], pendingScale: undefined }),
   addPoint({ point, eye }) {
     const { tool, draft, eyes } = get();

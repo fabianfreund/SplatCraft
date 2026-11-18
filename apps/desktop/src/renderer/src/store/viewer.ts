@@ -9,6 +9,9 @@ export interface Layers {
 
 interface ViewerState {
   layers: Layers;
+  /** Point-cloud size multiplier (1 = automatic). */
+  pointSize: number;
+  setPointSize(v: number): void;
   loading: boolean;
   /** Step of the splat currently displayed. */
   shownStep?: number;
@@ -22,6 +25,11 @@ interface ViewerState {
 
 export const useViewer = create<ViewerState>()((set, get) => ({
   layers: load<Layers>('layers', { points: true, cameras: true, splat: true }),
+  pointSize: load<number>('pointSize', 1),
+  setPointSize(pointSize) {
+    save('pointSize', pointSize);
+    set({ pointSize });
+  },
   loading: false,
   hasContent: false,
   setLayer(k, v) {

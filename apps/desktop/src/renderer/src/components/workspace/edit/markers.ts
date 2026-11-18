@@ -1,6 +1,6 @@
 import { distance, metersPerUnit, UNIT_TO_METERS, type LengthUnit, type SceneAlignment, type Vec3 } from '@splatcraft/core/alignment';
 import type { ViewerMarkers } from '../../../viewer/ViewerAPI';
-import type { EditTool } from '../../../store/edit';
+import type { EditTool, Overlay } from '../../../store/edit';
 
 const UNIT_DIGITS: Record<LengthUnit, number> = { m: 3, cm: 1, mm: 0, in: 2 };
 
@@ -18,13 +18,20 @@ export function realLength(a: Vec3, b: Vec3, al: SceneAlignment | undefined, uni
  * What the viewer draws: the saved ground triangle and scale line (when `showSaved`),
  * plus the points picked so far with the active tool.
  */
-export function buildMarkers(al: SceneAlignment | undefined, showSaved: boolean, tool: EditTool | null, draft: Vec3[], hover?: Vec3 | null): ViewerMarkers {
+export function buildMarkers(
+  al: SceneAlignment | undefined,
+  showSaved: boolean,
+  tool: EditTool | null,
+  draft: Vec3[],
+  hover?: Vec3 | null,
+  overlays: Record<Overlay, boolean> = { ground: true, scale: true },
+): ViewerMarkers {
   const m: ViewerMarkers = { points: [], lines: [], triangles: [] };
-  if (showSaved && al?.ground && tool !== 'ground') {
+  if (showSaved && overlays.ground && al?.ground && tool !== 'ground') {
     m.triangles.push({ points: al.ground.points, tone: 'ground' });
     m.points.push(...al.ground.points.map((p) => ({ p, tone: 'ground' as const })));
   }
-  if (showSaved && al?.scale && tool !== 'measure') {
+  if (showSaved && overlays.scale && al?.scale && tool !== 'measure') {
     const { a, b, distance: d, unit } = al.scale;
     m.lines.push({ a, b, tone: 'measure', label: formatLength(d, unit) });
     m.points.push({ p: a, tone: 'measure' }, { p: b, tone: 'measure' });

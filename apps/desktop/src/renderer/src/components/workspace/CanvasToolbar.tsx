@@ -38,7 +38,7 @@ import { pushMessage } from '../../store/messages';
 import { descriptorFor, effectiveSelectedKey, stepStatus, usePipeline } from '../../store/pipeline';
 import { useViewer } from '../../store/viewer';
 import { alignmentStepKey, useEdit, type EditTool } from '../../store/edit';
-import { Toolbar, ToolbarButton, ToolbarDivider, ToolbarSection, ToolbarToggleGroup, type ToolbarToggle } from '../../ui';
+import { Slider, Toolbar, ToolbarButton, ToolbarDivider, ToolbarSection, ToolbarToggleGroup, Tooltip, type ToolbarToggle } from '../../ui';
 import { addSources } from './useDrop';
 
 type Step = PipelineSpec['steps'][number];
@@ -264,6 +264,19 @@ export function CanvasToolbar() {
   );
 }
 
+/** Point size on a log scale: the slider runs 2^-2 … 2^2 (¼× … 4×). */
+function PointSizeSlider() {
+  const size = useViewer((s) => s.pointSize);
+  const setSize = useViewer((s) => s.setPointSize);
+  return (
+    <Tooltip content={`Point size · ${+size.toFixed(2)}×`} side="top">
+      <div className="flex h-9 w-24 items-center px-2" onDoubleClick={() => setSize(1)}>
+        <Slider min={-2} max={2} step={0.05} value={Math.log2(size)} changed={size !== 1} onChange={(v) => setSize(2 ** v)} />
+      </div>
+    </Tooltip>
+  );
+}
+
 function ViewerTools() {
   const layers = useViewer((s) => s.layers);
   const setLayer = useViewer((s) => s.setLayer);
@@ -277,6 +290,7 @@ function ViewerTools() {
           { id: 'splat', icon: Sparkles, label: 'Splat', active: layers.splat, onToggle: () => setLayer('splat', !layers.splat) },
         ]}
       />
+      {layers.points && <PointSizeSlider />}
       <ToolbarDivider />
       <ToolbarButton icon={Focus} label="Reset view" disabled={!commands} onClick={() => commands?.resetView()} />
       <ToolbarButton icon={ImageDown} label="Screenshot" disabled={!commands} onClick={() => commands?.screenshot()} />

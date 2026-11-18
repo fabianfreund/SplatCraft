@@ -67,6 +67,9 @@ export class SparkViewer implements ViewerAPI {
   private raycaster = new THREE.Raycaster();
   private splat?: SplatMesh;
   private points?: THREE.Points;
+  /** Automatic point size of the loaded cloud and the user's multiplier. */
+  private pointBase = 0.002;
+  private pointScale = 1;
   private cameraGizmos?: THREE.LineSegments;
   private splatToken = 0;
   private pointsToken = 0;
@@ -206,8 +209,9 @@ export class SparkViewer implements ViewerAPI {
     geom.computeBoundingSphere();
     const r = geom.boundingSphere?.radius ?? 1;
     const hasColor = !!geom.getAttribute('color');
+    this.pointBase = Math.max(0.002, r / 260);
     const mat = new THREE.PointsMaterial({
-      size: Math.max(0.002, r / 260),
+      size: this.pointBase * this.pointScale,
       sizeAttenuation: true,
       vertexColors: hasColor,
       color: hasColor ? 0xffffff : token('--sc-viewer-points', '#c9ced6'),
@@ -278,6 +282,12 @@ export class SparkViewer implements ViewerAPI {
     this.cameraGizmos.visible = this.layers.cameras;
     this.invalidate(120);
     this.content.add(this.cameraGizmos);
+  }
+
+  setPointSize(scale: number): void {
+    this.pointScale = scale;
+    if (this.points) (this.points.material as THREE.PointsMaterial).size = this.pointBase * scale;
+    this.invalidate();
   }
 
   setLayers(layers: ViewerLayers): void {

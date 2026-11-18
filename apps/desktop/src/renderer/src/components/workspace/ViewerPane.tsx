@@ -46,6 +46,8 @@ export function ViewerPane() {
   }, [projectDir, set]);
 
   useEffect(() => viewer.current?.setLayers(layers), [layers]);
+  const pointSize = useViewer((s) => s.pointSize);
+  useEffect(() => viewer.current?.setPointSize(pointSize), [pointSize]);
 
   // Render only while visible (the viewer stays mounted behind other views).
   const visible = useApp((s) => s.tab === 'viewer');

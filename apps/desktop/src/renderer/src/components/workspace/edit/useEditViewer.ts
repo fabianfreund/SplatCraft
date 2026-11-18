@@ -36,6 +36,7 @@ export function useEditViewer(viewer: RefObject<ViewerAPI | null>, surface: RefO
   const visible = useApp((s) => s.tab === 'viewer');
   const tool = useEdit((s) => s.tool);
   const draft = useEdit((s) => s.draft);
+  const overlays = useEdit((s) => s.overlays);
 
   useEffect(() => {
     const t = alignmentTransform(alignment);
@@ -50,14 +51,14 @@ export function useEditViewer(viewer: RefObject<ViewerAPI | null>, surface: RefO
     const v = viewer.current;
     if (!v) return;
     const h = tool ? hover.current : null;
-    v.setMarkers(buildMarkers(alignment, editing, tool, draft, h));
+    v.setMarkers(buildMarkers(alignment, editing, tool, draft, h, overlays));
     const plane = tool === 'ground' && draft.length === 2 && h ? ([draft[0], draft[1], h] as [Vec3, Vec3, Vec3]) : null;
     v.setHighlight({ hover: h, plane, tone: tool ?? 'ground' });
   };
   useEffect(() => {
     if (!tool) hover.current = null;
     redraw.current();
-  }, [alignment, editing, tool, draft, viewer]);
+  }, [alignment, editing, tool, draft, overlays, viewer]);
 
   // G / M toggle the tools on the Edit step.
   const pickable = useViewer((s) => s.hasContent);

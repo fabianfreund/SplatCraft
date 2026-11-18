@@ -1,10 +1,10 @@
 import { LENGTH_UNITS, type LengthUnit } from '@splatcraft/core/alignment';
-import { ArrowUpDown, Check, LandPlot, Ruler, Undo2, X, type LucideIcon } from 'lucide-react';
+import { ArrowUpDown, Check, Eye, EyeOff, LandPlot, Ruler, Undo2, X, type LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { TOOL_POINTS, useEdit } from '../../../store/edit';
 import { useApp } from '../../../store/app';
 import { usePipeline } from '../../../store/pipeline';
-import { Button, cn, IconButton, Kbd, NumberField, SegmentedControl, Text } from '../../../ui';
+import { Button, cn, IconButton, Kbd, NumberField, Select, Text } from '../../../ui';
 import { formatLength, realLength } from './markers';
 import { useAlignment, useEditStepSelected } from './useEditViewer';
 
@@ -37,15 +37,26 @@ function Chip({ icon: Icon, active, children }: { icon: LucideIcon; active: bool
 function AlignmentChips() {
   const al = useAlignment();
   const running = usePipeline((s) => s.running);
-  const { setGround, setScale } = useEdit.getState();
+  const overlays = useEdit((s) => s.overlays);
+  const { setGround, setScale, toggleOverlay } = useEdit.getState();
   const ground = al?.ground;
   const scale = al?.scale;
+  const eye = (k: 'ground' | 'scale', set: boolean) => (
+    <IconButton
+      icon={overlays[k] ? Eye : EyeOff}
+      label={overlays[k] ? 'Hide in view' : 'Show in view'}
+      size="sm"
+      disabled={!set}
+      onClick={() => toggleOverlay(k)}
+    />
+  );
   return (
     <div className="flex items-center gap-1.5">
       <Chip icon={LandPlot} active={!!ground}>
         <Text size="xs" weight="medium" className="w-12">
           Ground
         </Text>
+        {eye('ground', !!ground)}
         <IconButton icon={ArrowUpDown} label="Flip up direction" size="sm" disabled={!ground || running} onClick={() => ground && setGround({ ...ground, flip: !ground.flip })} />
         <IconButton icon={X} label="Clear ground" size="sm" disabled={!ground || running} onClick={() => setGround(undefined)} />
       </Chip>
@@ -53,6 +64,7 @@ function AlignmentChips() {
         <Text size="xs" weight="medium" num className="w-16 text-right">
           {scale ? formatLength(scale.distance, scale.unit) : '—'}
         </Text>
+        {eye('scale', !!scale)}
         <IconButton icon={X} label="Clear scale" size="sm" disabled={!scale || running} onClick={() => setScale(undefined)} />
       </Chip>
     </div>
@@ -103,7 +115,7 @@ function ScalePrompt() {
     <div data-edit-ui className="pointer-events-none absolute inset-x-0 top-16 z-20 flex justify-center px-6">
       <form
         ref={box}
-        className="glass pointer-events-auto flex h-12 items-center gap-2 rounded-xl border p-1.5 pl-3"
+        className="glass pointer-events-auto flex h-10 items-center gap-1.5 rounded-xl border px-2"
         style={{ animation: 'sc-pop-spring var(--sc-duration-spring) var(--sc-ease-spring)' }}
         onSubmit={(e) => {
           e.preventDefault();
@@ -118,10 +130,13 @@ function ScalePrompt() {
           }
         }}
       >
-        <Ruler size={15} className="text-fg-muted" />
-        <NumberField value={value} onChange={setValue} min={0} step={unit === 'mm' ? 1 : 0.1} width={88} placeholder="0" />
-        <SegmentedControl<LengthUnit> size="sm" ariaLabel="Unit" value={unit} segmentWidth={36} options={LENGTH_UNITS.map((u) => ({ value: u, label: u }))} onChange={setUnit} />
-        <Button type="submit" size="sm" variant="primary" icon={Check} disabled={!value || value <= 0}>
+        {/* One 24px row: icon, length, unit, confirm, cancel. */}
+        <span className="flex size-6 items-center justify-center text-fg-muted">
+          <Ruler size={14} />
+        </span>
+        <NumberField value={value} onChange={setValue} min={0} step={unit === 'mm' ? 1 : 0.1} width={84} placeholder="0" />
+        <Select<LengthUnit> size="sm" ariaLabel="Unit" width={60} value={unit} options={LENGTH_UNITS.map((u) => ({ value: u, label: u }))} onChange={setUnit} />
+        <Button type="submit" size="sm" variant="primary" icon={Check} disabled={!value || value <= 0} className="ml-1">
           Set scale
         </Button>
         <IconButton icon={X} label="Cancel" size="sm" onClick={() => useEdit.getState().cancel()} />

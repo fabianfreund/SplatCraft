@@ -52,6 +52,8 @@ export interface ViewerAPI {
   loadPointCloud(url: string): Promise<{ points: number }>;
   setCameras(cameras: CameraPose[]): void;
   setLayers(layers: ViewerLayers): void;
+  /** Point-cloud point size, as a multiple of the automatic size. */
+  setPointSize(scale: number): void;
   /**
    * Surface point under a screen position (splat, else point cloud), in file
    * coordinates. Null when nothing is hit.
