@@ -199,6 +199,10 @@ function createWindow() {
   mainWindow = win;
 
   win.once('ready-to-show', () => win.show());
+  const sendFullScreen = () => win.webContents.send(IPC.fullScreen, win.isFullScreen());
+  win.on('enter-full-screen', sendFullScreen);
+  win.on('leave-full-screen', sendFullScreen);
+  win.webContents.on('did-finish-load', sendFullScreen);
   win.on('closed', () => {
     if (mainWindow === win) mainWindow = null;
   });

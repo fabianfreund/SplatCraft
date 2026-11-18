@@ -91,6 +91,8 @@ export interface SplatCraftAPI {
     revealInFolder(absPath: string): Promise<void>;
     /** Application-menu commands the renderer should handle (e.g. ⌘N → show "New project" form). */
     onMenuAction(cb: (action: MenuAction) => void): () => void;
+    /** Native window full screen changed (macOS hides the traffic lights). */
+    onFullScreen(cb: (fullScreen: boolean) => void): () => void;
   };
   projects: {
     recent(): Promise<RecentProject[]>;
@@ -156,6 +158,7 @@ export const IPC = {
   installProgress: 'sc:install-progress',
   projectChanged: 'sc:project-changed',
   menuAction: 'sc:menu-action',
+  fullScreen: 'sc:full-screen',
 } as const;
 
 /** Custom protocol used by `app.fileUrl` to serve local files safely. */

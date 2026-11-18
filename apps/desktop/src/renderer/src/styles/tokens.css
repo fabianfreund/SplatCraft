@@ -198,6 +198,10 @@
   --sc-drawer-w: 320px;
   --sc-traffic-lights-w: 84px;
 }
+/* macOS full screen hides the traffic lights. */
+:root[data-fullscreen] {
+  --sc-traffic-lights-w: 12px;
+}
 :root[data-density='compact'] {
   --sc-control-h-sm: 22px;
   --sc-control-h: 26px;

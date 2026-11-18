@@ -497,6 +497,7 @@ export function createMockApi(): SplatCraftAPI {
       },
       revealInFolder: async () => {},
       onMenuAction: (cb) => menu.on(cb),
+      onFullScreen: () => () => {},
     },
     projects: {
       recent: () => delay(recents.slice()),

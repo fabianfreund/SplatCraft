@@ -54,6 +54,9 @@ export function App() {
         else if (a === 'project.close') void app.closeProject();
         else if (a === 'app.settings') app.setSettings('general');
       }),
+      cs.app.onFullScreen((fs) => {
+        document.documentElement.toggleAttribute('data-fullscreen', fs);
+      }),
     ];
     void cs.monitor.history().then((h) => useMonitor.getState().seed(h));
     void useApp.getState().boot().catch((e) => setError(String(e)));

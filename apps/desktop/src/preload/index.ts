@@ -23,6 +23,7 @@ const api: SplatCraftAPI = {
     fileUrl: (absPath) => toFileUrl(absPath),
     revealInFolder: (absPath) => invoke('app.revealInFolder', absPath),
     onMenuAction: (cb) => on(IPC.menuAction, cb),
+    onFullScreen: (cb) => on(IPC.fullScreen, cb),
   },
   projects: {
     recent: () => invoke('projects.recent'),
