@@ -1,8 +1,9 @@
-import { ChevronDown, File, Film, FolderPlus, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { ChevronDown, File, Film, FolderPlus, Image as ImageIcon, Scissors, Trash2 } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { formatBytes } from '../../lib/format';
+import { useImport } from '../import/useImport';
 import { useApp } from '../../store/app';
-import { Button, IconButton, Label, ListRow, Popover, Text } from '../../ui';
+import { Button, cn, IconButton, Label, ListRow, Popover, Text } from '../../ui';
 import { addSources } from './useDrop';
 
 const kindIcon = { image: ImageIcon, video: Film, other: File } as const;
@@ -30,7 +31,15 @@ export function SourcesButton() {
           <Label>Sources</Label>
           <span className="tnum ml-1.5 text-2xs text-fg-faint">{sources.length}</span>
           <div className="ml-auto">
-            <Button size="sm" variant="subtle" icon={FolderPlus} onClick={() => void addSources()}>
+            <Button
+              size="sm"
+              variant="subtle"
+              icon={FolderPlus}
+              onClick={() => {
+                setOpen(false);
+                void addSources();
+              }}
+            >
               Add…
             </Button>
           </div>
@@ -42,14 +51,24 @@ export function SourcesButton() {
               <ListRow
                 key={s.id}
                 size="sm"
-                leading={<Icon size={14} className="text-fg-subtle" />}
+                leading={<Icon size={14} className={s.trim ? 'text-accent' : 'text-fg-subtle'} />}
                 title={s.name}
                 trailing={
                   <>
                     <Text size="2xs" tone="subtle" num>
                       {formatBytes(s.size)}
                     </Text>
-                    <span className="opacity-0 transition-opacity group-hover:opacity-100">
+                    <span className="flex items-center opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                      <IconButton
+                        icon={Scissors}
+                        label="Trim video"
+                        size="xs"
+                        className={cn(s.kind !== 'video' && 'invisible')}
+                        onClick={() => {
+                          setOpen(false);
+                          useImport.getState().edit(s.id);
+                        }}
+                      />
                       <IconButton icon={Trash2} label="Remove" size="xs" onClick={async () => setMeta(await window.splatcraft.sources.remove([s.id]))} />
                     </span>
                   </>

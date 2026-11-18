@@ -21,12 +21,46 @@ export interface ViewerLayers {
   splat: boolean;
 }
 
+export type Vec3 = [number, number, number];
+
+/** Edit overlays, in file (content) coordinates. Drawn on top of everything. */
+export interface ViewerMarkers {
+  points: { p: Vec3; tone: MarkerTone }[];
+  lines: { a: Vec3; b: Vec3; tone: MarkerTone; label?: string }[];
+  triangles: { points: [Vec3, Vec3, Vec3]; tone: MarkerTone }[];
+}
+export type MarkerTone = 'ground' | 'measure';
+
+/** Splats tinted on the GPU while picking (file coordinates). */
+export interface ViewerHighlight {
+  /** Splats around this point (the cursor). */
+  hover?: Vec3 | null;
+  /** Splats lying on this plane. */
+  plane?: [Vec3, Vec3, Vec3] | null;
+  tone?: MarkerTone;
+}
+
+export interface PickHit {
+  point: Vec3;
+  /** Camera position at pick time (tells which side of a surface the user looked from). */
+  eye: Vec3;
+}
+
 export interface ViewerAPI {
   /** Loads a splat and hot-swaps it with the current one once ready. Resolves when shown. */
   loadSplat(src: SplatSource): Promise<void>;
   loadPointCloud(url: string): Promise<{ points: number }>;
   setCameras(cameras: CameraPose[]): void;
   setLayers(layers: ViewerLayers): void;
+  /**
+   * Surface point under a screen position (splat, else point cloud), in file
+   * coordinates. Null when nothing is hit.
+   */
+  pick(clientX: number, clientY: number): PickHit | null;
+  setMarkers(markers: ViewerMarkers): void;
+  setHighlight(h: ViewerHighlight): void;
+  /** Column-major 4×4 transform applied to all content (file → aligned coordinates), or null. */
+  setAlignment(matrix: number[] | null): void;
   /** Frames the current content. */
   resetCamera(): void;
   clear(): void;

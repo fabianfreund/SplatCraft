@@ -25,6 +25,8 @@ export class ProjectService extends EventEmitter {
   private project?: Project;
   private recentList: RecentEntry[] = [];
   private lastThumbAt = 0;
+  /** Files picked for import that the renderer may preview (sc-file) until the project changes. */
+  private previewable = new Set<string>();
 
   constructor(
     private registry: Registry,
@@ -148,6 +150,7 @@ export class ProjectService extends EventEmitter {
   async close() {
     if (!this.project) return;
     this.project = undefined;
+    this.previewable.clear();
     this.emit('changed', null);
   }
 
@@ -162,6 +165,15 @@ export class ProjectService extends EventEmitter {
     if (patch?.name) await this.touchRecent(p);
     this.notify();
     return meta;
+  }
+
+  /** Lets the renderer load these exact files (import previews). Cleared when the project closes or changes. */
+  allowPreview(files: string[]) {
+    for (const f of files) this.previewable.add(path.resolve(f));
+  }
+
+  previewPaths(): string[] {
+    return [...this.previewable];
   }
 
   /** Called after any mutation of the current project from main. */
@@ -192,6 +204,7 @@ export class ProjectService extends EventEmitter {
   }
 
   private async setCurrent(project: Project) {
+    if (this.project !== project) this.previewable.clear();
     this.project = project;
     this.lastThumbAt = 0;
     await this.touchRecent(project);
@@ -229,7 +242,7 @@ export class ProjectService extends EventEmitter {
     return undefined;
   }
 
-  private showOpenDialog(opts: OpenDialogOptions) {
+  showOpenDialog(opts: OpenDialogOptions) {
     const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
     return win ? dialog.showOpenDialog(win, opts) : dialog.showOpenDialog(opts);
   }

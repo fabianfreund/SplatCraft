@@ -7,6 +7,8 @@ import { useViewer } from '../../store/viewer';
 import { Badge, Button, EmptyState, LoadingOverlay, Spinner } from '../../ui';
 import { SparkViewer } from '../../viewer/SparkViewer';
 import type { ViewerAPI } from '../../viewer/ViewerAPI';
+import { EditOverlay } from './edit/EditOverlay';
+import { useEditViewer } from './edit/useEditViewer';
 
 const bust = (url: string, v: number | string) => (url.startsWith('blob:') || url.startsWith('data:') ? url : `${url}${url.includes('?') ? '&' : '?'}v=${v}`);
 
@@ -48,6 +50,8 @@ export function ViewerPane() {
   // Render only while visible (the viewer stays mounted behind other views).
   const visible = useApp((s) => s.tab === 'viewer');
   useEffect(() => viewer.current?.setActive(visible), [visible]);
+
+  useEditViewer(viewer, host);
 
   // Point cloud.
   const pc = previews.pointcloud;
@@ -122,6 +126,8 @@ export function ViewerPane() {
         )}
         <span className="flex size-6 items-center justify-center text-fg-muted">{loading && <Spinner size={13} />}</span>
       </div>
+
+      <EditOverlay />
 
       {/* First splat of a session: blur + loader. Later hot-swaps only use the small spinner. */}
       <LoadingOverlay show={loading && shownStep === undefined && layers.splat} label="Loading splat" />

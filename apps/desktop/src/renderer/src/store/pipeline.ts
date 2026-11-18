@@ -434,13 +434,17 @@ export function stepStatus(
   s: Pick<PipelineState, 'steps' | 'plan'>,
   key: string,
   enabled: boolean,
-): { status: StepStatus; rt?: StepRuntime; stats?: Record<string, number | string> } {
+): { status: StepStatus; rt?: StepRuntime; stats?: Record<string, number | string>; error?: string } {
   if (!enabled) return { status: 'disabled' };
   const rt = s.steps[key];
   const plan = s.plan.find((p) => p.key === key);
   const live = rt && (rt.status === 'running' || rt.status === 'queued' || !rt.hash || !plan || rt.hash === plan.hash);
   if (rt && live) return { status: rt.status, rt, stats: rt.stats ?? (plan?.cached ? plan.stats : undefined) };
   if (plan?.cached) return { status: 'cached', rt: rt?.status === 'cached' || rt?.status === 'done' ? rt : undefined, stats: plan.stats ?? rt?.stats };
+  // Not in the cache: fall back to what project.json remembers.
+  const last = plan?.last;
+  if (last?.status === 'complete') return { status: 'stale', stats: last.stats };
+  if (last?.status === 'failed' && last.hash === plan?.hash) return { status: 'error', error: last.error };
   return { status: 'idle' };
 }
 

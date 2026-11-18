@@ -1,11 +1,12 @@
-import { readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { readdir, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { definePlugin, defineStage, StageError, type StageContext, type ToolSpec } from '@splatcraft/core';
 import sharp from 'sharp';
 import { z } from 'zod';
-import { ensureDir, execText, exists, freshDir, linkOrCopy, listImages, pool, readPlyInfo } from '../util/fs.js';
+import { ensureDir, execText, exists, freshDir, linkOrCopy, listImages, pool } from '../util/fs.js';
 import { throttledProgress } from '../util/preview.js';
-import { colmapLineProgress, parseImagesTxt, parseModelAnalyzer, type ModelStats } from './model.js';
+import { emitModelPreview, snapshotFrequency, watchSnapshots } from './live.js';
+import { colmapLineProgress, parseModelAnalyzer, type ModelStats } from './model.js';
 
 const manualLinux = { type: 'manual' as const, instructions: 'Install COLMAP 4.x from your package manager or build it from source.', url: 'https://colmap.github.io/install.html' };
 
@@ -179,12 +180,18 @@ export const colmapStage = defineStage<ColmapParams>({
         ? ['global_mapper', '--GlobalMapper.gp_use_gpu', g, '--GlobalMapper.ba_ceres_use_gpu', g, '--GlobalMapper.num_threads', String(p.numThreads)]
         : ['mapper', '--Mapper.ba_use_gpu', g, '--Mapper.num_threads', String(p.numThreads)];
     const diag = { emptyGraph: false, noInitialPair: false, noFocalPriors: false };
+    // Incremental mapping writes partial models as it grows: preview them live.
+    // (The global mapper solves everything at once; it previews when it finishes.)
+    const snapDir = path.join(ctx.workDir, 'snapshots');
+    const liveDir = path.join(ctx.workDir, 'live');
     const runMapper = async (m: 'global' | 'incremental', from: number, to: number) => {
       await rm(rawDir, { recursive: true, force: true });
       await ensureDir(rawDir);
       progress(from, `Reconstructing (${m})`, true);
+      const live = m === 'incremental' ? watchSnapshots(ctx, await freshDir(snapDir), await freshDir(liveDir)) : undefined;
+      const snapArgs = live ? ['--Mapper.snapshot_path', snapDir, '--Mapper.snapshot_frames_freq', String(snapshotFrequency(files.length))] : [];
       await ctx
-        .spawn('colmap', [...mapperArgs(m), '--database_path', db, '--image_path', imagesIn, '--output_path', rawDir, ...common], {
+        .spawn('colmap', [...mapperArgs(m), ...snapArgs, '--database_path', db, '--image_path', imagesIn, '--output_path', rawDir, ...common], {
           onLine: (line) => {
             if (/empty pose graph/i.test(line)) diag.emptyGraph = true;
             if (/No good initial image pair/i.test(line)) diag.noInitialPair = true;
@@ -196,7 +203,8 @@ export const colmapStage = defineStage<ColmapParams>({
         .catch((e) => {
           if (ctx.signal.aborted) throw e;
           ctx.log(`${m} mapper failed: ${(e as Error).message}`, 'warn');
-        });
+        })
+        .finally(() => live?.stop());
       return pickBest(ctx, rawDir);
     };
     let usedMapper = p.mapper;
@@ -232,6 +240,20 @@ export const colmapStage = defineStage<ColmapParams>({
       });
     }
 
+    // 4. Previews: point cloud + cameras of the chosen model, right away (undistortion
+    // keeps poses and points). Kept OUTSIDE dataset/ (trainers treat any .ply there as init).
+    progress(0.86, 'Exporting previews', true);
+    const prevDir = await freshDir(path.join(ctx.workDir, 'preview'));
+    let ply = path.join(prevDir, 'points.ply');
+    let cameras = 0;
+    try {
+      ({ ply, cameras } = await emitModelPreview(ctx, best.dir, prevDir));
+    } catch (e) {
+      ctx.log(`Preview export failed: ${(e as Error).message}`, 'warn');
+    }
+    await rm(snapDir, { recursive: true, force: true }).catch(() => {});
+    await rm(liveDir, { recursive: true, force: true }).catch(() => {});
+
     // 5. Dataset (COLMAP layout: images/ + sparse/0), optionally undistorted.
     const dataset = await freshDir(path.join(ctx.workDir, 'dataset'));
     const hasDistortion = p.cameraModel === 'OPENCV' || p.cameraModel === 'RADIAL' || p.cameraModel === 'SIMPLE_RADIAL';
@@ -251,25 +273,6 @@ export const colmapStage = defineStage<ColmapParams>({
       await pool(files, 8, (f) => linkOrCopy(path.join(imagesIn, path.basename(f)), path.join(imgOut, path.basename(f))), ctx.signal);
     }
     const sparse0 = path.join(dataset, 'sparse', '0');
-
-    // 6. Previews: point cloud + cameras. Kept OUTSIDE dataset/ (trainers treat any .ply there as init).
-    progress(0.95, 'Exporting previews', true);
-    const prevDir = await freshDir(path.join(ctx.workDir, 'preview'));
-    const ply = path.join(prevDir, 'points.ply');
-    let cameras = 0;
-    try {
-      await ctx.spawn('colmap', ['model_converter', '--input_path', sparse0, '--output_path', ply, '--output_type', 'PLY', ...common]);
-      const info = await readPlyInfo(ply);
-      ctx.preview({ kind: 'pointcloud', path: ply, points: info?.vertices });
-      const txt = await ensureDir(path.join(prevDir, 'txt'));
-      await ctx.spawn('colmap', ['model_converter', '--input_path', sparse0, '--output_path', txt, '--output_type', 'TXT', ...common]);
-      const poses = parseImagesTxt(await readFile(path.join(txt, 'images.txt'), 'utf8'));
-      cameras = poses.length;
-      ctx.preview({ kind: 'cameras', cameras: poses });
-      await rm(path.join(txt, 'points3D.txt'), { force: true }); // large; not needed after parsing
-    } catch (e) {
-      ctx.log(`Preview export failed: ${(e as Error).message}`, 'warn');
-    }
 
     const final = await analyze(ctx, sparse0).catch(() => best!.stats);
     const s = { ...best.stats, ...final };

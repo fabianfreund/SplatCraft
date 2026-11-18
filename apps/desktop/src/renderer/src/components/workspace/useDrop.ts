@@ -1,24 +1,15 @@
 import { useEffect, useState } from 'react';
-import { useApp } from '../../store/app';
-import { usePipeline } from '../../store/pipeline';
+import { useImport } from '../import/useImport';
 
-/** Adds sources, then auto-runs up to the review (quality) step. */
-export async function addSources(paths?: string[]) {
-  try {
-    const before = useApp.getState().project?.meta.sources.length ?? 0;
-    const meta = await window.splatcraft.sources.add(paths);
-    useApp.getState().setMeta(meta);
-    await usePipeline.getState().refreshPlan();
-    if (meta.sources.length > before) {
-      useApp.getState().setTab('gallery', false);
-      void usePipeline.getState().runReview();
-    }
-  } catch (e) {
-    useApp.getState().setError(String((e as Error).message ?? e));
-  }
+/**
+ * Opens the import dialog for `paths` (or a file picker). Nothing is copied
+ * or processed until the user confirms; runs are always started by hand.
+ */
+export function addSources(paths?: string[]) {
+  return useImport.getState().begin(paths);
 }
 
-/** Window-wide file drop → sources.add(paths). Returns whether a drag is over. */
+/** Window-wide file drop → import dialog. Returns whether a drag is over. */
 export function useWindowDrop() {
   const [over, setOver] = useState(false);
   useEffect(() => {

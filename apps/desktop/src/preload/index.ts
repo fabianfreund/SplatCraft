@@ -36,7 +36,9 @@ const api: SplatCraftAPI = {
     onChanged: (cb) => on(IPC.projectChanged, cb),
   },
   sources: {
-    add: (paths, mode) => invoke('sources.add', paths, mode),
+    inspect: (paths) => invoke('sources.inspect', paths),
+    add: (items, mode) => invoke('sources.add', items, mode),
+    update: (id, patch) => invoke('sources.update', id, patch),
     remove: (ids) => invoke('sources.remove', ids),
     pathForFile: (file) => webUtils.getPathForFile(file),
   },

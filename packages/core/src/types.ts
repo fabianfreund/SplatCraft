@@ -175,6 +175,12 @@ export interface PipelineTemplate {
 
 export type SourceKind = 'image' | 'video' | 'other';
 
+/** Part of a video to use, in seconds from the start. `end` omitted = until the end. */
+export interface SourceTrim {
+  start: number;
+  end?: number;
+}
+
 export interface SourceEntry {
   id: string;
   /** Relative to project dir when copied, absolute when linked. */
@@ -185,6 +191,32 @@ export interface SourceEntry {
   size: number;
   mtimeMs: number;
   addedAt: string;
+  /** Videos only: the range to extract frames from. */
+  trim?: SourceTrim;
+}
+
+/**
+ * Last known result of a pipeline step. Kept in project.json so a reopened
+ * project still shows its progress, even when the cache was cleaned or the
+ * settings changed since (then the step is "outdated" rather than unknown).
+ */
+export interface StepRecord {
+  stageId: string;
+  /** Cache key the result was produced with. */
+  hash: string;
+  status: 'complete' | 'failed';
+  runId: string;
+  finishedAt: string;
+  durationMs?: number;
+  stats?: Record<string, number | string>;
+  error?: string;
+}
+
+export interface RunRecord {
+  runId: string;
+  status: 'completed' | 'cancelled' | 'failed';
+  finishedAt: string;
+  error?: string;
 }
 
 export interface ProjectMeta {
@@ -198,6 +230,10 @@ export interface ProjectMeta {
   capture: { date?: string; location?: string; device?: string; notes?: string };
   sources: SourceEntry[];
   pipeline: PipelineSpec;
+  /** Last result per step key (written by the engine). */
+  steps?: Record<string, StepRecord>;
+  /** The most recent run. */
+  lastRun?: RunRecord;
 }
 
 /* ------------------------------------------------------------------ */

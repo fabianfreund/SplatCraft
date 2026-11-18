@@ -5,7 +5,8 @@ import { ProgressBar } from './ProgressBar';
 import { Spinner } from './Spinner';
 import { HelpTip, Tooltip } from './Tooltip';
 
-export type StepperState = 'idle' | 'queued' | 'running' | 'done' | 'error' | 'disabled' | 'cancelled';
+/** `stale`: finished before, but outdated by changed settings or inputs. */
+export type StepperState = 'idle' | 'queued' | 'running' | 'done' | 'stale' | 'error' | 'disabled' | 'cancelled';
 
 export interface StepperItemProps {
   index: number;
@@ -33,11 +34,13 @@ export interface StepperItemProps {
 /** One row of a vertical numbered stepper. All slots are fixed-size. */
 export function StepperItem({ index, title, help, stat, statMuted, state, fraction, selected, doneBelow, last, error, trailing, indicator, modified, onSelect }: StepperItemProps) {
   const done = state === 'done';
+  const sub = state === 'running' || (state === 'error' && !!error);
   const badge = (
     <span
       className={cn(
         'relative z-[1] flex size-6 shrink-0 items-center justify-center rounded-full border text-2xs font-semibold tnum transition-colors duration-200',
         done && 'border-accent bg-accent text-accent-ink',
+        state === 'stale' && 'border-accent bg-surface-1 text-accent',
         state === 'running' && 'border-accent bg-surface-1 text-accent',
         state === 'error' && 'border-danger bg-danger-soft text-danger',
         state === 'cancelled' && 'border-warning bg-surface-1 text-warning',
@@ -45,7 +48,7 @@ export function StepperItem({ index, title, help, stat, statMuted, state, fracti
         state === 'disabled' && 'border-line bg-surface-1 text-fg-faint',
       )}
     >
-      {done ? <Check size={12} strokeWidth={3} style={{ animation: 'sc-check-pop var(--sc-duration-spring) var(--sc-ease-spring)' }} /> : state === 'running' ? <Spinner size={12} /> : state === 'error' ? <X size={12} strokeWidth={3} /> : index}
+      {done || state === 'stale' ? <Check size={12} strokeWidth={3} style={{ animation: 'sc-check-pop var(--sc-duration-spring) var(--sc-ease-spring)' }} /> : state === 'running' ? <Spinner size={12} /> : state === 'error' ? <X size={12} strokeWidth={3} /> : index}
     </span>
   );
   return (
@@ -76,14 +79,14 @@ export function StepperItem({ index, title, help, stat, statMuted, state, fracti
           />
         </span>
       )}
-      {error ? (
-        <Tooltip content={error} wide>
+      {error || state === 'stale' ? (
+        <Tooltip content={error ?? 'Outdated · settings changed since the last run'} wide>
           {badge}
         </Tooltip>
       ) : (
         badge
       )}
-      <div className="ml-1 flex min-w-0 flex-1 flex-col justify-center gap-0.5">
+      <div className="ml-1 flex min-w-0 flex-1 flex-col justify-center">
         <div className="flex items-center gap-1">
           <span className={cn('ellipsis text-sm font-medium', selected ? 'text-fg' : 'text-fg-muted', state === 'running' && 'text-fg')}>{title}</span>
           {modified && (
@@ -96,7 +99,12 @@ export function StepperItem({ index, title, help, stat, statMuted, state, fracti
             <HelpTip text={help} />
           </span>
         </div>
-        <div className="flex h-[14px] w-full items-center" aria-hidden={state === 'running'}>
+        {/* Sub-line (progress / error) slides open; the title stays centered without it. Row height is fixed. */}
+        <div
+          className="flex w-full items-center overflow-hidden"
+          style={{ height: sub ? 16 : 0, paddingTop: sub ? 2 : 0, opacity: sub ? 1 : 0, transition: 'height var(--sc-duration-base) var(--sc-ease-out), padding var(--sc-duration-base) var(--sc-ease-out), opacity var(--sc-duration-base) var(--sc-ease-out)' }}
+          aria-hidden={state === 'running'}
+        >
           {state === 'running' ? (
             <ProgressBar value={fraction} height={2} />
           ) : state === 'error' && error ? (

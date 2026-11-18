@@ -1,4 +1,4 @@
-import { AlertTriangle, Ban, Check, CircleDashed, CircleDot, Clock3, Database, X, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, Ban, Check, CircleDashed, CircleDot, Clock3, Database, History, X, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from './cn';
 import { Spinner } from './Spinner';
@@ -26,7 +26,8 @@ export function Badge({ tone = 'neutral', icon: Icon, children, className, width
   );
 }
 
-export type StepStatus = 'idle' | 'queued' | 'cached' | 'running' | 'done' | 'error' | 'disabled' | 'cancelled';
+/** `stale`: ran before, but settings or inputs changed since (needs a re-run). */
+export type StepStatus = 'idle' | 'queued' | 'cached' | 'running' | 'done' | 'stale' | 'error' | 'disabled' | 'cancelled';
 
 const statusMeta: Record<StepStatus, { tone: Tone; label: string; icon?: LucideIcon }> = {
   idle: { tone: 'neutral', label: 'Idle', icon: CircleDashed },
@@ -34,6 +35,7 @@ const statusMeta: Record<StepStatus, { tone: Tone; label: string; icon?: LucideI
   cached: { tone: 'success', label: 'Cached', icon: Database },
   running: { tone: 'accent', label: 'Running' },
   done: { tone: 'success', label: 'Done', icon: Check },
+  stale: { tone: 'warning', label: 'Outdated', icon: History },
   error: { tone: 'danger', label: 'Error', icon: X },
   disabled: { tone: 'neutral', label: 'Off', icon: Ban },
   cancelled: { tone: 'warning', label: 'Stopped', icon: AlertTriangle },

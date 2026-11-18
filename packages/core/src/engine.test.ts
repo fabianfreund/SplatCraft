@@ -78,6 +78,24 @@ async function setup() {
 }
 
 describe('PipelineEngine', () => {
+  it('remembers step results in project.json, also once they are outdated', async () => {
+    const { engine, project } = await setup();
+    await engine.run(project);
+    const reopened = await Project.open(project.dir);
+    expect(reopened.meta.lastRun?.status).toBe('completed');
+    expect(Object.keys(reopened.meta.steps ?? {})).toEqual(['a', 'b']);
+    expect(reopened.meta.steps?.a.status).toBe('complete');
+
+    // Change a param: the cache no longer matches, but the record survives.
+    await reopened.update((m) => {
+      m.pipeline.steps[0].params = { n: 2 };
+    });
+    const plan = await engine.plan(reopened);
+    expect(plan.map((p) => p.cached)).toEqual([false, false]);
+    expect(plan[0].last?.status).toBe('complete');
+    expect(plan[0].last?.hash).not.toBe(plan[0].hash);
+  });
+
   it('caches unchanged steps and re-runs only downstream of a param change', async () => {
     const { engine, project } = await setup();
     expect((await engine.run(project)).status).toBe('completed');
@@ -117,6 +135,21 @@ describe('PipelineEngine', () => {
     const { engine, project } = await setup();
     expect((await engine.plan(project)).map((s) => s.cached)).toEqual([false, false]);
     await engine.run(project);
+    expect((await engine.plan(project)).map((s) => s.cached)).toEqual([true, true]);
+  });
+
+  it('a changed video trim invalidates the steps that consume sources', async () => {
+    const { engine, project } = await setup();
+    const clip = path.join(project.dir, '..', 'clip.mp4');
+    await writeFile(clip, 'not really a video');
+    const [src] = await project.addSources([{ path: clip, trim: { start: 1, end: 4 } }], 'link');
+    await engine.run(project);
+    expect((await engine.plan(project)).map((s) => s.cached)).toEqual([true, true]);
+
+    await project.updateSource(src!.id, { trim: { start: 2, end: 4 } });
+    expect((await engine.plan(project)).map((s) => s.cached)).toEqual([false, false]);
+
+    await project.updateSource(src!.id, { trim: { start: 1, end: 4 } });
     expect((await engine.plan(project)).map((s) => s.cached)).toEqual([true, true]);
   });
 });

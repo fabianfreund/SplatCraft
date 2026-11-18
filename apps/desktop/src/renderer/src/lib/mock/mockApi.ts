@@ -163,8 +163,8 @@ const STAGES: StageDescriptor[] = [
   {
     id: 'splatcraft.export.splat',
     version: '1.0.0',
-    title: 'Export',
-    description: 'Writes the final splat in the chosen format(s).',
+    title: 'Edit & Export',
+    description: 'Levels and scales the splat, then writes it in the chosen format(s).',
     category: 'export',
     pluginId: 'splatcraft.builtin',
     tools: [],
@@ -175,6 +175,7 @@ const STAGES: StageDescriptor[] = [
       format: en(['ply', 'spz', 'sog'], { default: 'spz', description: 'SPZ is ~10× smaller than PLY with minimal quality loss.' }),
       pruneOpacity: num({ minimum: 0, maximum: 0.5, default: 0.02, description: 'Drop gaussians below this opacity.' }),
       crop: bool({ default: false, description: 'Apply the crop box from the viewer.' }),
+      alignment: { type: 'object', description: 'Ground plane and scale reference picked in the viewer.' },
     }),
     presets: {},
   },
@@ -301,7 +302,7 @@ export function createMockApi(): SplatCraftAPI {
   }
 
   function hashChain(spec: PipelineSpec): PlanStep[] {
-    let prev = 'src' + (project?.meta.sources.length ?? 0);
+    let prev = 'src' + JSON.stringify((project?.meta.sources ?? []).map((x) => [x.id, x.trim ?? null]));
     return spec.steps
       .filter((s) => s.enabled)
       .map((s) => {
@@ -533,13 +534,43 @@ export function createMockApi(): SplatCraftAPI {
       onChanged: (cb) => projChanged.on(cb),
     },
     sources: {
-      add: async (paths) => {
-        await sleep(300);
-        const list = paths?.length ? paths : ['/Users/demo/Desktop/IMG_5001.HEIC', '/Users/demo/Desktop/IMG_5002.HEIC'];
-        for (const p of list) {
+      inspect: async (paths) => {
+        await sleep(120);
+        const list = paths?.length ? paths : MOCK_PICK;
+        return list.map((p) => {
           const name = p.split('/').pop()!;
-          const video = /\.(mov|mp4|m4v|avi|mkv)$/i.test(name);
-          project!.meta.sources.push({ id: Math.random().toString(36).slice(2), path: p, mode: 'copy', kind: video ? 'video' : /\.(jpe?g|png|heic|tiff?|dng)$/i.test(name) ? 'image' : 'other', name, size: 3_000_000 + Math.random() * 9e6, mtimeMs: Date.now(), addedAt: new Date().toISOString() });
+          const kind = mockKind(name);
+          // No real file behind the path: videos fall back to numeric trim (as for codecs Chromium can't play).
+          return { path: p, name, kind, size: Math.round(3_000_000 + (parseInt(hashStr(p).slice(0, 5), 16) % 9_000_000)), ...(kind === 'video' ? { duration: 42.5 } : {}) };
+        });
+      },
+      add: async (items, mode = 'copy') => {
+        await sleep(300);
+        const known = new Set(project!.meta.sources.map((s) => s.path));
+        for (const it of items) {
+          if (known.has(it.path)) continue;
+          const name = it.path.split('/').pop()!;
+          const kind = mockKind(name);
+          project!.meta.sources.push({
+            id: Math.random().toString(36).slice(2, 10),
+            path: it.path,
+            mode,
+            kind,
+            name,
+            size: 3_000_000 + Math.random() * 9e6,
+            mtimeMs: Date.now(),
+            addedAt: new Date().toISOString(),
+            ...(kind === 'video' && it.trim ? { trim: it.trim } : {}),
+          });
+        }
+        return structuredClone(project!.meta);
+      },
+      update: async (id, patch) => {
+        const s = project!.meta.sources.find((x) => x.id === id);
+        if (!s) throw new Error(`Unknown source: ${id}`);
+        if ('trim' in patch) {
+          if (patch.trim && s.kind === 'video') s.trim = patch.trim;
+          else delete s.trim;
         }
         return structuredClone(project!.meta);
       },
@@ -638,6 +669,14 @@ export function createMockApi(): SplatCraftAPI {
 }
 
 /* ------------------------------------------------------------------ */
+
+/** What the mock file picker "selects". */
+const MOCK_PICK = ['/Users/demo/Desktop/IMG_5001.MOV', '/Users/demo/Desktop/IMG_5002.JPG', '/Users/demo/Desktop/IMG_5003.JPG'];
+
+function mockKind(name: string): 'image' | 'video' | 'other' {
+  if (/\.(mov|mp4|m4v|avi|mkv|webm)$/i.test(name)) return 'video';
+  return /\.(jpe?g|png|heic|tiff?|dng|webp)$/i.test(name) ? 'image' : 'other';
+}
 
 function hashStr(s: string) {
   let h = 2166136261;

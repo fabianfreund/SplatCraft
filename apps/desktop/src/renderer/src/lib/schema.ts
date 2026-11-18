@@ -40,7 +40,7 @@ function bound(v: unknown): number | undefined {
 }
 
 /** Keys rendered elsewhere (e.g. frame include/exclude in the media grid). */
-export const HIDDEN_PARAM_KEYS = new Set(['excluded', 'included']);
+export const HIDDEN_PARAM_KEYS = new Set(['excluded', 'included', 'alignment']);
 
 export function fieldsFromSchema(schema: unknown): FieldSpec[] {
   const root = unwrap(schema as JS);

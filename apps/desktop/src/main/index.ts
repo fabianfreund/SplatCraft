@@ -88,7 +88,7 @@ async function main() {
   });
 
   handleFileProtocol(() => {
-    const roots = [path.join(app.getPath('userData'), 'thumbnails'), ...s.projects.recentDirs()];
+    const roots = [path.join(app.getPath('userData'), 'thumbnails'), ...s.projects.recentDirs(), ...s.projects.previewPaths()];
     const p = s.projects.currentProject;
     if (p) {
       roots.push(p.dir);

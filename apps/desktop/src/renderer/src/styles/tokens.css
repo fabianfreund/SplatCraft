@@ -121,6 +121,8 @@
   --sc-chart-fill: color-mix(in srgb, var(--sc-accent) 10%, transparent);
   --sc-chart-axis: var(--sc-fg-subtle);
   --sc-viewer-camera: var(--sc-accent);
+  --sc-viewer-ground: var(--sc-success);
+  --sc-viewer-measure: var(--sc-warning);
 
   --sc-shadow-glow: 0 0 0 1px color-mix(in srgb, var(--sc-accent) 30%, transparent),
     0 6px 20px -8px color-mix(in srgb, var(--sc-accent) 30%, transparent);

@@ -17,6 +17,7 @@ import type {
   StageContext,
   StageNotice,
   StageResult,
+  StepRecord,
 } from './types.js';
 
 /** Implemented by @splatcraft/toolchain; injected so core stays pure. */
@@ -96,7 +97,7 @@ export class PipelineEngine extends EventEmitter {
   /** Compute the hash chain without running (for UI "cached ✓" badges). */
   async plan(project: Project, spec: PipelineSpec = project.meta.pipeline) {
     const artifacts = this.sourcesArtifact(project);
-    const steps: { key: string; stageId: string; hash: string; cached: boolean; stats?: StageResult['stats']; notices?: StageNotice[] }[] = [];
+    const steps: { key: string; stageId: string; hash: string; cached: boolean; stats?: StageResult['stats']; notices?: StageNotice[]; last?: StepRecord }[] = [];
     let available: Partial<Record<ArtifactKind, ArtifactRef>> = { sources: artifacts };
     for (const step of spec.steps.filter((s) => s.enabled)) {
       const def = this.registry.stage(step.stageId);
@@ -106,7 +107,16 @@ export class PipelineEngine extends EventEmitter {
       const dir = path.join(project.paths.cache, sanitize(def.id), hash);
       const manifest = await readManifest(dir);
       const cached = manifest?.status === 'complete';
-      steps.push({ key: step.key, stageId: def.id, hash, cached, stats: cached ? manifest?.stats : undefined, notices: cached ? manifest?.notices : undefined });
+      const last = project.meta.steps?.[step.key];
+      steps.push({
+        key: step.key,
+        stageId: def.id,
+        hash,
+        cached,
+        stats: cached ? manifest?.stats : undefined,
+        notices: cached ? manifest?.notices : undefined,
+        ...(last ? { last } : {}),
+      });
       for (const kind of def.outputs) {
         const out = manifest?.outputs?.[kind];
         available = { ...available, [kind]: { kind, path: out?.path ?? dir, hash: hashOf(hash, kind), meta: out?.meta } };
@@ -132,6 +142,13 @@ export class PipelineEngine extends EventEmitter {
 
     let available: Partial<Record<ArtifactKind, ArtifactRef>> = { sources: this.sourcesArtifact(project) };
     let forceDownstream = false;
+    /** Persists a step's outcome in project.json (best effort: never fails the run). */
+    const record = (key: string, rec: Omit<StepRecord, 'runId' | 'finishedAt'> & { finishedAt?: string }) =>
+      project
+        .update((m) => {
+          m.steps = { ...m.steps, [key]: { finishedAt: new Date().toISOString(), ...rec, runId } };
+        })
+        .catch(() => {});
     let status: 'completed' | 'cancelled' | 'failed' = 'completed';
     let error: string | undefined;
 
@@ -159,6 +176,10 @@ export class PipelineEngine extends EventEmitter {
           (await allExist(Object.values(manifest.outputs ?? {}).map((o) => o!.path)))
         ) {
           this.emitEvent({ type: 'stage.cached', runId, key: step.key, stageId: def.id, hash, stats: manifest.stats, notices: manifest.notices });
+          // Backfill projects from before step records existed.
+          const prev = project.meta.steps?.[step.key];
+          if (prev?.hash !== hash || prev.status !== 'complete')
+            await record(step.key, { stageId: def.id, hash, status: 'complete', stats: manifest.stats, finishedAt: manifest.finishedAt });
         } else {
           if (forceDownstream || (manifest && !def.resumable)) await rm(workDir, { recursive: true, force: true });
           const resume = !!manifest && !!def.resumable && !forceDownstream;
@@ -201,6 +222,7 @@ export class PipelineEngine extends EventEmitter {
               finishedAt: new Date().toISOString(),
             };
             await writeManifest(workDir, manifest);
+            await record(step.key, { stageId: def.id, hash, status: 'complete', durationMs: Date.now() - t0, stats: result.stats });
             this.emitEvent({ type: 'stage.done', runId, key: step.key, stageId: def.id, durationMs: Date.now() - t0, stats: result.stats });
           } catch (e) {
             if (abort.signal.aborted) throw new CancelledError();
@@ -210,6 +232,7 @@ export class PipelineEngine extends EventEmitter {
                 ? { level: 'error', title: e.message, ...e.notice }
                 : { level: 'error', title: `${def.title} failed`, detail: errMsg(e), hint: 'Open the log for details.' },
             );
+            await record(step.key, { stageId: def.id, hash, status: 'failed', durationMs: Date.now() - t0, error: errMsg(e) });
             this.emitEvent({ type: 'stage.error', runId, key: step.key, stageId: def.id, error: errMsg(e) });
             throw e;
           }
@@ -229,6 +252,12 @@ export class PipelineEngine extends EventEmitter {
       }
     } finally {
       this.active = undefined;
+      const finishedAt = new Date().toISOString();
+      await project
+        .update((m) => {
+          m.lastRun = { runId, status, finishedAt, ...(error ? { error } : {}) };
+        })
+        .catch(() => {});
       await writeFile(
         path.join(runDir, 'result.json'),
         JSON.stringify({ status, error, finishedAt: new Date().toISOString(), artifacts: available }, null, 2),
@@ -252,7 +281,7 @@ export class PipelineEngine extends EventEmitter {
     return {
       kind: 'sources',
       path: project.paths.sources,
-      hash: hashOf('sources', entries.map((s) => [s.id, s.name, s.size, s.mtimeMs])),
+      hash: hashOf('sources', entries.map((s) => [s.id, s.name, s.size, s.mtimeMs, ...(s.trim ? [s.trim.start, s.trim.end ?? null] : [])])),
       meta: { entries },
     };
   }

@@ -4,6 +4,7 @@ import { useMessages } from '../../store/messages';
 import { useApp } from '../../store/app';
 import { cn, EmptyState, LoadingOverlay } from '../../ui';
 import { usePipeline } from '../../store/pipeline';
+import { ImportDialog } from '../import/ImportDialog';
 import { CanvasToolbar } from './CanvasToolbar';
 import { FailureOverlay } from './FailureOverlay';
 import { Gallery } from './Gallery';
@@ -65,6 +66,7 @@ export function Workspace() {
         {advanced && !chromeHidden && <StepDrawer />}
       </div>
       {!chromeHidden && <StatusDock />}
+      <ImportDialog />
       {dragging && (
         <div className="pointer-events-none fixed inset-0 z-[950] flex items-center justify-center bg-overlay p-6 backdrop-blur-sm" style={{ animation: 'sc-fade-in var(--sc-duration-fast) var(--sc-ease-out)' }}>
           <div className="flex size-full items-center justify-center rounded-xl border-2 border-dashed border-accent bg-surface-1 shadow-glow">

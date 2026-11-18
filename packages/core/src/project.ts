@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { copyFile, mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import type { PipelineSpec, ProjectMeta, SourceEntry, SourceKind } from './types.js';
+import type { PipelineSpec, ProjectMeta, SourceEntry, SourceKind, SourceTrim } from './types.js';
 
 export const PROJECT_EXT = '.splatcraft';
 export const PROJECT_FILE = 'project.json';
@@ -14,6 +14,32 @@ export function classifySource(file: string): SourceKind {
   if (IMAGE_EXT.has(ext)) return 'image';
   if (VIDEO_EXT.has(ext)) return 'video';
   return 'other';
+}
+
+/** A file to import, optionally with a trim range (videos only). */
+export interface SourceInput {
+  path: string;
+  trim?: SourceTrim;
+}
+
+/** Fields of a source that may change after import. `trim: null` clears it. */
+export interface SourcePatch {
+  trim?: SourceTrim | null;
+}
+
+/**
+ * Validates a trim range from untrusted input. Returns undefined when it
+ * selects the whole clip (or is invalid), so "no trim" has one representation.
+ */
+export function normalizeTrim(trim: unknown): SourceTrim | undefined {
+  if (!trim || typeof trim !== 'object') return undefined;
+  const t = trim as Record<string, unknown>;
+  const start = Number.isFinite(t.start) ? Math.max(0, Number(t.start)) : 0;
+  const end = t.end === undefined || t.end === null || !Number.isFinite(t.end) ? undefined : Number(t.end);
+  if (end !== undefined && end <= start) return undefined;
+  if (start === 0 && end === undefined) return undefined;
+  const r = (n: number) => Math.round(n * 1000) / 1000;
+  return end === undefined ? { start: r(start) } : { start: r(start), end: r(end) };
 }
 
 /** Layout of a project folder. All derived data is disposable; sources + project.json are the truth. */
@@ -121,10 +147,11 @@ export class Project {
    * Add media. `copy` makes the project self-contained; `link` references
    * files in place (fast for big video). Originals are never modified.
    */
-  async addSources(files: string[], mode: 'copy' | 'link' = 'copy'): Promise<SourceEntry[]> {
+  async addSources(files: (string | SourceInput)[], mode: 'copy' | 'link' = 'copy'): Promise<SourceEntry[]> {
     const added: SourceEntry[] = [];
     const existing = new Set(this._meta.sources.map((s) => s.name + ':' + s.size));
-    for (const file of files) {
+    for (const input of files) {
+      const file = typeof input === 'string' ? input : input.path;
       const st = await stat(file);
       if (!st.isFile()) continue;
       const name = path.basename(file);
@@ -135,19 +162,37 @@ export class Project {
         rel = path.join('sources', `${id}_${name}`);
         await copyFile(file, path.join(this.dir, rel));
       }
+      const kind = classifySource(file);
+      const trim = kind === 'video' && typeof input !== 'string' ? normalizeTrim(input.trim) : undefined;
       added.push({
         id,
         path: rel,
         mode,
-        kind: classifySource(file),
+        kind,
         name,
         size: st.size,
         mtimeMs: st.mtimeMs,
         addedAt: new Date().toISOString(),
+        ...(trim ? { trim } : {}),
       });
     }
     if (added.length) await this.update((m) => m.sources.push(...added));
     return added;
+  }
+
+  /** Changes editable fields of a source (e.g. a video's trim). */
+  async updateSource(id: string, patch: SourcePatch): Promise<SourceEntry> {
+    const src = this._meta.sources.find((s) => s.id === id);
+    if (!src) throw new Error(`Unknown source: ${id}`);
+    const meta = await this.update((m) => {
+      const s = m.sources.find((x) => x.id === id)!;
+      if ('trim' in patch) {
+        const trim = s.kind === 'video' ? normalizeTrim(patch.trim) : undefined;
+        if (trim) s.trim = trim;
+        else delete s.trim;
+      }
+    });
+    return meta.sources.find((s) => s.id === id)!;
   }
 
   async removeSources(ids: string[]): Promise<void> {

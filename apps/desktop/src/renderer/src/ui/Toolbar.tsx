@@ -109,6 +109,7 @@ export interface ToolbarToggle {
   label: string;
   shortcut?: string;
   active: boolean;
+  disabled?: boolean;
   onToggle: () => void;
 }
 
@@ -130,9 +131,10 @@ export function ToolbarToggleGroup({ items }: { items: ToolbarToggle[] }) {
               type="button"
               aria-label={it.label}
               aria-pressed={it.active}
+              disabled={it.disabled}
               onClick={it.onToggle}
               className={cn(
-                'press group relative flex h-9 w-9 shrink-0 items-center justify-center outline-none focus-visible:ring-1 focus-visible:ring-line-focus',
+                'press group relative flex h-9 w-9 shrink-0 items-center justify-center outline-none focus-visible:ring-1 focus-visible:ring-line-focus disabled:cursor-not-allowed disabled:opacity-35',
                 it.active ? 'text-accent' : 'text-fg-muted hover:text-fg',
               )}
               style={{ borderRadius: r }}

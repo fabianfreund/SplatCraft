@@ -2,12 +2,12 @@ import { SparkRenderer, SplatFileType, SplatMesh } from '@sparkjsdev/spark';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
-import type { CameraPose, SplatSource, ViewerAPI, ViewerLayers } from './ViewerAPI';
+import { CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
+import { SplatHighlight } from './highlight';
+import { MarkerLayer } from './markers';
+import { token } from './tokens';
+import type { CameraPose, PickHit, SplatSource, ViewerAPI, ViewerHighlight, ViewerLayers, ViewerMarkers } from './ViewerAPI';
 
-function token(name: string, fallback: string): THREE.Color {
-  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  return new THREE.Color(v || fallback);
-}
 
 function fileTypeOf(p?: string): SplatFileType | undefined {
   const ext = p?.split(/[?#]/)[0].split('.').pop()?.toLowerCase();
@@ -29,6 +29,10 @@ function fileTypeOf(p?: string): SplatFileType | undefined {
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r(undefined)));
+
+const FLIP = new THREE.Matrix4().makeRotationX(Math.PI);
+/** How close (screen pixels) a click must be to a point of the cloud. */
+const PICK_RADIUS_PX = 6;
 
 /** Robust bounds: 5th–95th percentile per axis of (sampled) points. */
 function robustSphere(xs: number[], ys: number[], zs: number[]): THREE.Sphere | null {
@@ -55,14 +59,19 @@ export class SparkViewer implements ViewerAPI {
   private camera: THREE.PerspectiveCamera;
   private controls: OrbitControls;
   private spark: SparkRenderer;
-  /** COLMAP/3DGS content is y-down; flip once for everything we load. */
+  /** COLMAP/3DGS content is y-down; flipped once (and aligned, see setAlignment) for everything we load. */
   private content = new THREE.Group();
+  private markers = new MarkerLayer();
+  private highlight = new SplatHighlight();
+  private labels: CSS2DRenderer;
+  private raycaster = new THREE.Raycaster();
   private splat?: SplatMesh;
   private points?: THREE.Points;
   private cameraGizmos?: THREE.LineSegments;
   private splatToken = 0;
   private pointsToken = 0;
   private framed = false;
+  /** Content bounds in file (content-local) coordinates. */
   private bounds?: THREE.Sphere;
   private layers: ViewerLayers = { points: true, cameras: true, splat: true };
   private ro: ResizeObserver;
@@ -105,8 +114,15 @@ export class SparkViewer implements ViewerAPI {
     this.applyTheme();
     window.addEventListener('sc-theme-change', this.onTheme);
 
-    this.content.rotation.x = Math.PI;
+    this.content.matrixAutoUpdate = false;
+    this.content.matrix.copy(FLIP);
+    this.content.updateMatrixWorld(true);
     this.scene.add(this.content);
+
+    this.labels = new CSS2DRenderer();
+    Object.assign(this.labels.domElement.style, { position: 'absolute', inset: '0', pointerEvents: 'none' });
+    container.appendChild(this.labels.domElement);
+    this.content.add(this.markers.group, this.highlight.group);
 
     this.ro = new ResizeObserver(() => this.resize());
     this.ro.observe(container);
@@ -125,6 +141,7 @@ export class SparkViewer implements ViewerAPI {
       if (this.frames <= 0) return;
       this.frames--;
       this.renderer.render(this.scene, this.camera);
+      this.labels.render(this.scene, this.camera);
     });
   }
 
@@ -143,6 +160,7 @@ export class SparkViewer implements ViewerAPI {
     const w = Math.max(1, this.container.clientWidth);
     const h = Math.max(1, this.container.clientHeight);
     this.renderer.setSize(w, h, false);
+    this.labels.setSize(w, h);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.invalidate();
@@ -196,6 +214,7 @@ export class SparkViewer implements ViewerAPI {
       transparent: true,
       opacity: 0.95,
     });
+    this.highlight.attachPoints(mat);
     const pts = new THREE.Points(geom, mat);
     pts.visible = this.layers.points;
     this.removePoints();
@@ -209,9 +228,8 @@ export class SparkViewer implements ViewerAPI {
       const zs: number[] = [];
       const stride = Math.max(1, Math.floor(pos.count / 20000));
       const v = new THREE.Vector3();
-      this.content.updateMatrixWorld();
       for (let i = 0; i < pos.count; i += stride) {
-        v.fromBufferAttribute(pos, i).applyMatrix4(this.content.matrixWorld);
+        v.fromBufferAttribute(pos, i);
         xs.push(v.x);
         ys.push(v.y);
         zs.push(v.z);
@@ -270,6 +288,56 @@ export class SparkViewer implements ViewerAPI {
     this.invalidate();
   }
 
+  pick(clientX: number, clientY: number): PickHit | null {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    if (!rect.width || !rect.height) return null;
+    const ndc = new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
+    this.raycaster.setFromCamera(ndc, this.camera);
+    this.content.updateMatrixWorld(true);
+    // The point cloud wins when shown (sparse, no floaters); the splat is the fallback.
+    const p = this.pickPoints() ?? this.pickSplat();
+    if (!p) return null;
+    const eye = this.content.worldToLocal(this.camera.position.clone());
+    return { point: [p.x, p.y, p.z], eye: [eye.x, eye.y, eye.z] };
+  }
+
+  /** Front-most point within a few pixels of the ray, as its exact position (file coordinates). */
+  private pickPoints(): THREE.Vector3 | null {
+    if (!this.points?.visible) return null;
+    const pxWorld = (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * this.camera.position.distanceTo(this.controls.target)) / Math.max(1, this.container.clientHeight);
+    this.raycaster.params.Points = { threshold: PICK_RADIUS_PX * pxWorld };
+    const hit = this.raycaster.intersectObject(this.points, false)[0]; // sorted by distance
+    if (hit?.index === undefined) return null;
+    return new THREE.Vector3().fromBufferAttribute(this.points.geometry.getAttribute('position') as THREE.BufferAttribute, hit.index);
+  }
+
+  private pickSplat(): THREE.Vector3 | null {
+    if (!this.splat || !this.layers.splat) return null;
+    const hit = this.raycaster.intersectObject(this.splat, false).sort((a, b) => a.distance - b.distance)[0];
+    return hit ? this.content.worldToLocal(hit.point.clone()) : null;
+  }
+
+  setHighlight(h: ViewerHighlight): void {
+    this.highlight.set(h);
+    this.invalidate(30);
+  }
+
+  setMarkers(m: ViewerMarkers): void {
+    this.markers.set(m);
+    this.invalidate();
+  }
+
+  setAlignment(matrix: number[] | null): void {
+    const next = FLIP.clone();
+    if (matrix) next.multiply(new THREE.Matrix4().fromArray(matrix));
+    if (next.equals(this.content.matrix)) return;
+    this.content.matrix.copy(next);
+    this.content.updateMatrixWorld(true);
+    // Re-frame the content where it now sits.
+    if (this.bounds) this.applyBounds(this.bounds);
+    this.invalidate();
+  }
+
   resetCamera(): void {
     this.invalidate();
     if (this.splat) this.frameFromSplat(this.splat);
@@ -291,6 +359,8 @@ export class SparkViewer implements ViewerAPI {
     }
     this.removePoints();
     this.removeCameras();
+    this.markers.set({ points: [], lines: [], triangles: [] });
+    this.highlight.set({});
     this.framed = false;
     this.bounds = undefined;
   }
@@ -306,9 +376,11 @@ export class SparkViewer implements ViewerAPI {
     this.renderer.setAnimationLoop(null);
     this.ro.disconnect();
     this.clear();
+    this.markers.dispose();
     this.controls.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();
+    this.labels.domElement.remove();
   }
 
   /* ---------------------------------------------------------------- */
@@ -329,6 +401,8 @@ export class SparkViewer implements ViewerAPI {
     this.scene.add(grid);
     this.grid = grid;
     if (this.cameraGizmos) (this.cameraGizmos.material as THREE.LineBasicMaterial).color = token('--sc-viewer-camera', '#6cc3b5');
+    this.markers.applyTheme();
+    this.highlight.applyTheme();
     const pm = this.points?.material as THREE.PointsMaterial | undefined;
     if (pm && !pm.vertexColors) pm.color = token('--sc-viewer-points', '#c9ced6');
   }
@@ -339,16 +413,12 @@ export class SparkViewer implements ViewerAPI {
     const zs: number[] = [];
     const n = mesh.packedSplats?.numSplats ?? 0;
     const stride = Math.max(1, Math.floor(n / 20000));
-    this.content.updateMatrixWorld();
-    const mw = this.content.matrixWorld;
-    const v = new THREE.Vector3();
     try {
       mesh.forEachSplat((i, center) => {
         if (i % stride) return;
-        v.copy(center).applyMatrix4(mw);
-        xs.push(v.x);
-        ys.push(v.y);
-        zs.push(v.z);
+        xs.push(center.x);
+        ys.push(center.y);
+        zs.push(center.z);
       });
     } catch {
       /* not all sources support iteration */
@@ -356,10 +426,14 @@ export class SparkViewer implements ViewerAPI {
     this.applyBounds(robustSphere(xs, ys, zs));
   }
 
-  private applyBounds(s: THREE.Sphere | null) {
-    if (!s || !Number.isFinite(s.radius) || s.radius <= 0) return;
-    this.bounds = s;
+  /** Frames a sphere given in file coordinates. */
+  private applyBounds(local: THREE.Sphere | null) {
+    if (!local || !Number.isFinite(local.radius) || local.radius <= 0) return;
+    this.bounds = local;
     this.framed = true;
+    this.highlight.setSize(local.radius);
+    this.content.updateMatrixWorld(true);
+    const s = local.clone().applyMatrix4(this.content.matrixWorld);
     const dist = s.radius / Math.sin(THREE.MathUtils.degToRad(this.camera.fov / 2)) * 0.9;
     const dir = new THREE.Vector3(0.55, 0.35, 0.76).normalize();
     this.controls.target.copy(s.center);

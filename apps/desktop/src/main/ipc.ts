@@ -1,10 +1,11 @@
 import path from 'node:path';
-import { app, BrowserWindow, dialog, ipcMain, shell, webContents } from 'electron';
-import type { PipelineSpec, PresetId } from '@splatcraft/core';
-import { IPC, type AppInfo, type OpenProject, type PipelineState } from '@shared/api';
+import { app, BrowserWindow, ipcMain, shell, webContents } from 'electron';
+import { normalizeTrim, type PipelineSpec, type PresetId, type SourceInput, type SourceTrim } from '@splatcraft/core';
+import { IPC, type AppInfo, type OpenProject, type PendingSource, type PipelineState, type SourceImport } from '@shared/api';
 import type { EngineEventHub } from './services/events';
 import type { Services } from './services';
 import { assertPreset, listRuns, readMetrics, readNotices, validateSpec } from './services/pipeline';
+import { describeFiles } from './services/media';
 import { latestPreviews } from './services/previews';
 
 /** Context of a call: the calling webContents id (undefined for in-process self-tests). */
@@ -59,12 +60,11 @@ export function createHandlers(s: Services, hub: EngineEventHub): Record<string,
     'projects.updateMeta': (_c, patch) => projects.updateMeta(patch ?? {}),
 
     /* sources */
-    'sources.add': async (_c, paths?: string[], mode: 'copy' | 'link' = 'copy') => {
-      const p = projects.require();
+    'sources.inspect': async (_c, paths?: string[]): Promise<PendingSource[]> => {
+      projects.require();
       let files = Array.isArray(paths) ? paths.filter((x): x is string => typeof x === 'string' && path.isAbsolute(x)) : undefined;
       if (!files) {
-        const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
-        const opts: Electron.OpenDialogOptions = {
+        const res = await projects.showOpenDialog({
           title: 'Add photos or videos',
           buttonLabel: 'Add',
           properties: ['openFile', 'multiSelections'],
@@ -72,12 +72,32 @@ export function createHandlers(s: Services, hub: EngineEventHub): Record<string,
             { name: 'Photos & videos', extensions: ['jpg', 'jpeg', 'png', 'tif', 'tiff', 'heic', 'heif', 'webp', 'dng', 'exr', 'mp4', 'mov', 'm4v', 'mkv', 'avi', 'webm', 'insv', '360'] },
             { name: 'All files', extensions: ['*'] },
           ],
-        };
-        const res = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts);
-        if (res.canceled) return p.meta;
+        });
+        if (res.canceled) return [];
         files = res.filePaths;
       }
-      await p.addSources(files, mode === 'link' ? 'link' : 'copy');
+      const out = await describeFiles(files, toolchain);
+      // Only media files, never folders, become previewable.
+      projects.allowPreview(out.filter((f) => f.kind !== 'other').map((f) => f.path));
+      return out;
+    },
+    'sources.add': async (_c, items: unknown, mode: 'copy' | 'link' = 'copy') => {
+      const p = projects.require();
+      const list: SourceInput[] = (Array.isArray(items) ? items : [])
+        .map((it): SourceInput | undefined => {
+          if (typeof it === 'string') return { path: it };
+          if (it && typeof it === 'object' && typeof (it as SourceImport).path === 'string') return { path: (it as SourceImport).path, trim: normalizeTrim((it as SourceImport).trim) };
+          return undefined;
+        })
+        .filter((it): it is SourceInput => !!it && path.isAbsolute(it.path));
+      await p.addSources(list, mode === 'link' ? 'link' : 'copy');
+      projects.notify();
+      return p.meta;
+    },
+    'sources.update': async (_c, id: string, patch: { trim?: unknown }) => {
+      const p = projects.require();
+      // updateSource validates the trim (anything invalid clears it).
+      await p.updateSource(String(id), patch && typeof patch === 'object' && 'trim' in patch ? { trim: (patch.trim ?? null) as SourceTrim | null } : {});
       projects.notify();
       return p.meta;
     },

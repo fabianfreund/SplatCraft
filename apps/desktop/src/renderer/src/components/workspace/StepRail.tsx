@@ -66,7 +66,7 @@ export function StepRail() {
                     statMuted={!stat}
                     state={state}
                     fraction={s.rt?.fraction}
-                    error={notices[st.key]?.find((n) => n.notice.level === 'error')?.notice.title ?? s.rt?.error}
+                    error={notices[st.key]?.find((n) => n.notice.level === 'error')?.notice.title ?? s.rt?.error ?? s.error}
                     indicator={<StepNotices title={shortTitle(d, st.key)} items={notices[st.key]} />}
                     selected={selected === st.key}
                     modified={Object.keys(st.params ?? {}).some((k) => !HIDDEN_PARAM_KEYS.has(k))}

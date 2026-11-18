@@ -49,6 +49,7 @@ type Entry = SourceEntry & { abs: string };
 
 export const framesStage = defineStage<FramesParams>({
   id: 'splatcraft.prepare.frames',
+  // Unchanged output without a trim, which enters the cache key on their own.
   version: '1',
   title: 'Frames',
   description: 'Normalizes photos (EXIF rotation, resize, JPEG) and extracts sharp frames from videos.',
@@ -83,8 +84,8 @@ export const framesStage = defineStage<FramesParams>({
     };
 
     // Work units for progress: one per image, expected frame count per video.
-    const videoInfo = await Promise.all(videos.map((v) => probeVideo(ctx, v.abs)));
-    const videoUnits = videoInfo.map((i) => Math.max(1, Math.round((i.duration ?? 10) * ctx.params.fps)));
+    const videoInfo = await Promise.all(videos.map(async (v) => withTrim(await probeVideo(ctx, v.abs), v)));
+    const videoUnits = videoInfo.map((i) => Math.max(1, Math.round((i.span ?? 10) * ctx.params.fps)));
     const totalUnits = images.length + videoUnits.reduce((a, b) => a + b, 0);
     let doneUnits = 0;
 
@@ -153,12 +154,36 @@ async function normalizeImage(ctx: StageContext<FramesParams>, src: string, out:
   }
 }
 
-interface VideoInfo {
+interface ProbeInfo {
   duration?: number;
   fps?: number;
 }
 
-async function probeVideo(ctx: StageContext<FramesParams>, file: string): Promise<VideoInfo> {
+/** Probe data plus the part of the clip to extract (from the source's trim). */
+interface VideoInfo extends ProbeInfo {
+  /** Seconds to skip at the start. */
+  start: number;
+  /** Seconds to extract after `start`; undefined = until the end. */
+  length?: number;
+  /** Duration of the extracted part when known (for progress and frame budgets). */
+  span?: number;
+}
+
+export function withTrim(info: ProbeInfo, v: Pick<SourceEntry, 'trim'>): VideoInfo {
+  const d = info.duration;
+  let start = Math.max(0, v.trim?.start ?? 0);
+  let end = v.trim?.end;
+  if (d !== undefined) {
+    if (start >= d) start = 0; // a trim past the end (e.g. replaced file) → ignore it
+    if (end !== undefined && end > d) end = undefined;
+  }
+  if (end !== undefined && end <= start) end = undefined;
+  const length = end !== undefined ? end - start : undefined;
+  const span = length ?? (d !== undefined ? d - start : undefined);
+  return { ...info, start, length, span };
+}
+
+async function probeVideo(ctx: StageContext<FramesParams>, file: string): Promise<ProbeInfo> {
   if (!ctx.tools.ffprobe) return {};
   try {
     const out = await execText(ctx.tools.ffprobe, ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=avg_frame_rate:format=duration', '-of', 'json', file], 20000);
@@ -186,15 +211,17 @@ async function extractVideo(
 ): Promise<number> {
   const { sharpestOf, maxResolution: M, maxFramesPerVideo } = ctx.params;
   let fps = ctx.params.fps;
-  // Spread a frame budget evenly over the whole clip instead of truncating it.
-  if (maxFramesPerVideo > 0 && info.duration && info.duration * fps > maxFramesPerVideo) fps = maxFramesPerVideo / info.duration;
+  // Spread a frame budget evenly over the whole (trimmed) clip instead of truncating it.
+  if (maxFramesPerVideo > 0 && info.span && info.span * fps > maxFramesPerVideo) fps = maxFramesPerVideo / info.span;
   const k = Math.max(1, sharpestOf);
   const candFps = info.fps ? Math.min(fps * k, info.fps) : fps * k;
   const window = Math.max(1, Math.round(candFps / fps));
   const tmp = await freshDir(path.join(ctx.workDir, 'tmp', v.id));
   const stem = path.parse(v.name).name;
   const scale = `scale='if(gte(iw,ih),min(iw,${M}),-2)':'if(gte(iw,ih),-2,min(ih,${M}))':flags=lanczos`;
-  const args = ['-hide_banner', '-nostdin', '-y', '-i', v.abs, '-vf', `fps=${candFps},${scale}`, '-q:v', '2', '-progress', 'pipe:1', '-nostats', '-stats_period', '1'];
+  // Input seeking (-ss before -i) is fast and frame-accurate when re-encoding.
+  const range = [...(info.start > 0 ? ['-ss', info.start.toFixed(3)] : []), ...(info.length !== undefined ? ['-t', info.length.toFixed(3)] : [])];
+  const args = ['-hide_banner', '-nostdin', '-y', ...range, '-i', v.abs, '-vf', `fps=${candFps},${scale}`, '-q:v', '2', '-progress', 'pipe:1', '-nostats', '-stats_period', '1'];
   if (maxFramesPerVideo > 0) args.push('-frames:v', String(maxFramesPerVideo * window + window - 1));
   args.push(path.join(tmp, '%06d.jpg'));
 
@@ -236,7 +263,7 @@ async function extractVideo(
     await sleep(400, ctx.signal);
     throwIfAborted(ctx.signal);
     await processWindows();
-    const frac = info.duration ? outTime / info.duration : 0;
+    const frac = info.span ? outTime / info.span : 0;
     onProgress(Math.min(0.99, frac), `${v.name}: ${kept} frames`);
   }
   if (failure) throw failure;

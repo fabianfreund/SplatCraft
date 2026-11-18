@@ -20,6 +20,7 @@ import {
   NumberField,
   ProgressBar,
   RadioList,
+  RangeSlider,
   SegmentedControl,
   Select,
   Skeleton,
@@ -52,6 +53,8 @@ export function UiKit() {
   const [on, setOn] = useState(true);
   const [num, setNum] = useState<number | undefined>(15000);
   const [slide, setSlide] = useState(0.4);
+  const [range, setRange] = useState<[number, number]>([2, 7.5]);
+  const [head, setHead] = useState(4);
   const [loading, setLoading] = useState(true);
   const [lay, setLay] = useState({ points: true, cameras: true, splat: false });
   const flip = (k: keyof typeof lay) => setLay((l) => ({ ...l, [k]: !l[k] }));
@@ -92,6 +95,9 @@ export function UiKit() {
           <Field label="Steps">
             <Slider value={slide} min={0} max={1} step={0.01} onChange={setSlide} changed />
             <NumberField value={num} onChange={setNum} integer />
+          </Field>
+          <Field label="Trim">
+            <RangeSlider min={0} max={10} step={0.1} minGap={0.1} value={range} onChange={setRange} marker={head} onSeek={setHead} className="flex-1" />
           </Field>
           <Field label="Engine">
             <Select size="sm" className="flex-1" value="brush" onChange={() => undefined} options={[{ value: 'brush', label: 'Brush' }, { value: 'gsplat', label: 'gsplat' }]} />

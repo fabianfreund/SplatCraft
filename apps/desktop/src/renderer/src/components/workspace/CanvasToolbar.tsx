@@ -20,8 +20,10 @@ import {
   FolderPlus,
   Gem,
   ImageDown,
+  LandPlot,
   Play,
   RotateCw,
+  Ruler,
   Sparkles,
   Square,
   Undo2,
@@ -35,7 +37,8 @@ import { useApp } from '../../store/app';
 import { pushMessage } from '../../store/messages';
 import { descriptorFor, effectiveSelectedKey, stepStatus, usePipeline } from '../../store/pipeline';
 import { useViewer } from '../../store/viewer';
-import { Toolbar, ToolbarButton, ToolbarDivider, ToolbarSection, ToolbarToggleGroup } from '../../ui';
+import { alignmentStepKey, useEdit, type EditTool } from '../../store/edit';
+import { Toolbar, ToolbarButton, ToolbarDivider, ToolbarSection, ToolbarToggleGroup, type ToolbarToggle } from '../../ui';
 import { addSources } from './useDrop';
 
 type Step = PipelineSpec['steps'][number];
@@ -53,6 +56,12 @@ interface Ctx {
   setParams(patch: Record<string, unknown>): void;
   /** Effective value: override → preset → schema default. */
   param(key: string): unknown;
+  /** The step owns the scene alignment (ground / scale tools apply). */
+  alignable: boolean;
+  /** Something is shown in the 3D view that points can be picked on. */
+  pickable: boolean;
+  tool: EditTool | null;
+  setTool(t: EditTool | null): void;
 }
 
 interface Action {
@@ -65,6 +74,8 @@ interface Action {
 }
 
 interface StepTools {
+  /** Modal canvas tools (toggles), shown before the actions. */
+  tools?(c: Ctx): ToolbarToggle[];
   actions(c: Ctx): Action[];
   primary(c: Ctx): Action;
 }
@@ -136,6 +147,19 @@ export const STEP_ACTIONS: Record<string, StepTools> = {
     primary: (c) => (c.done ? proceed(c, 'Export') : runThis(c, 'Train')),
   },
   export: {
+    tools: (c) => {
+      if (!c.alignable) return [];
+      const toggle = (id: EditTool, icon: LucideIcon, label: string, shortcut: string): ToolbarToggle => ({
+        id,
+        icon,
+        label,
+        shortcut,
+        active: c.tool === id,
+        disabled: !c.pickable || c.running,
+        onToggle: () => c.setTool(c.tool === id ? null : id),
+      });
+      return [toggle('ground', LandPlot, 'Set ground · pick 3 points', 'G'), toggle('measure', Ruler, 'Set scale · pick 2 points', 'M')];
+    },
     actions: (c) => {
       const file = typeof c.stats?.file === 'string' ? `${c.projectDir}/${c.stats.file}` : undefined;
       return [
@@ -177,6 +201,8 @@ export function CanvasToolbar() {
   const run = usePipeline((s) => s.run);
   const cancel = usePipeline((s) => s.cancel);
   const updateStep = usePipeline((s) => s.updateStep);
+  const tool = useEdit((s) => s.tool);
+  const hasContent = useViewer((s) => s.hasContent);
 
   const step = spec?.steps.find((x) => x.key === key);
   const descriptor = step ? descriptorFor(stages, step.stageId) : undefined;
@@ -196,8 +222,16 @@ export function CanvasToolbar() {
     run: (opts, origin) => void run(opts, origin),
     setParams: (patch) => updateStep(step.key, { params: { ...step.params, ...patch } }),
     param: (k) => (k in step.params ? step.params[k] : (descriptor?.presets[spec.preset]?.[k] ?? fields.find((f) => f.key === k)?.default)),
+    alignable: alignmentStepKey(spec, stages) === step.key,
+    pickable: hasContent,
+    tool,
+    setTool: (t) => {
+      if (t) useApp.getState().setTab('viewer');
+      useEdit.getState().setTool(t);
+    },
   };
   const tools = STEP_ACTIONS[descriptor?.category ?? ''] ?? FALLBACK;
+  const toggles = tools.tools?.(ctx) ?? [];
   const actions = tools.actions(ctx);
   const primary = tools.primary(ctx);
 
@@ -208,6 +242,12 @@ export function CanvasToolbar() {
           {tab === 'viewer' ? <ViewerTools /> : <GalleryTools />}
           <ToolbarDivider />
           <ToolbarSection key={step.key}>
+            {toggles.length > 0 && (
+              <>
+                <ToolbarToggleGroup items={toggles} />
+                <ToolbarDivider />
+              </>
+            )}
             {actions.map((a) => (
               <ToolbarButton key={a.id} icon={a.icon} label={a.label} disabled={a.disabled} onClick={a.onClick} />
             ))}

@@ -45,7 +45,7 @@ Everything is under **Settings → Appearance** (`components/settings/SettingsDi
 |---|---|
 | Actions | `Button`, `IconButton`, `ActionButton` |
 | Choice | `SegmentedControl`, `RadioList`, `ChipGroup`, `ChoiceCard`, `Switch`, `Select`, `SwatchPicker` |
-| Input | `Input`, `Textarea`, `TagInput`, `NumberField`, `Slider` |
+| Input | `Input`, `Textarea`, `TagInput`, `NumberField`, `Slider`, `RangeSlider` (dual-handle trim bar with playhead) |
 | Canvas | `Toolbar`, `ToolbarButton`, `ToolbarDivider` (floating Figma-style pill) |
 | Layout | `Panel`, `Section`, `Field`, `Stat`, `Divider`, `ResizeHandle`, `NavList` |
 | Overlay | `Dialog`, `Sheet`, `Popover`, `ContextMenu`, `Tooltip`, `HelpTip`, `Toast` |

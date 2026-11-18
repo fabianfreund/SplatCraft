@@ -100,3 +100,12 @@ export function humanize(key: string): string {
   const s = words.join(' ');
   return /^[a-z]/.test(s) ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 }
+
+/** Seconds → "1:05.20" (media time with centiseconds). */
+export function formatSeconds(sec: number | undefined): string {
+  if (sec === undefined || !Number.isFinite(sec)) return '—';
+  const cs = Math.max(0, Math.round(sec * 100));
+  const m = Math.floor(cs / 6000);
+  const s = (cs % 6000) / 100;
+  return `${m}:${s.toFixed(2).padStart(5, '0')}`;
+}

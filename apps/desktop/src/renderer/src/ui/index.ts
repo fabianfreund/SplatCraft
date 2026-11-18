@@ -23,6 +23,7 @@ export * from './Panel';
 export * from './Popover';
 export * from './ProgressBar';
 export * from './RadioList';
+export * from './RangeSlider';
 export * from './ResizeHandle';
 export * from './SegmentedControl';
 export * from './Select';

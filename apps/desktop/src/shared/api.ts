@@ -10,13 +10,16 @@ import type {
   PresetId,
   PreviewPayload,
   ProjectMeta,
+  SourceKind,
+  SourceTrim,
   StageDescriptor,
   StageNotice,
+  StepRecord,
   SystemSample,
   ToolStatus,
 } from '@splatcraft/core';
 
-export type { EngineEvent, PipelineSpec, PluginInfo, PresetId, PreviewPayload, ProjectMeta, StageDescriptor, StageNotice, SystemSample, ToolStatus };
+export type { EngineEvent, PipelineSpec, PluginInfo, PresetId, PreviewPayload, ProjectMeta, SourceKind, SourceTrim, StageDescriptor, StageNotice, StepRecord, SystemSample, ToolStatus };
 
 /** A notice posted by a step during a run (persisted in runs/<id>/notices.jsonl). */
 export interface NoticeEntry {
@@ -24,6 +27,24 @@ export interface NoticeEntry {
   stageId: string;
   at: string;
   notice: StageNotice;
+}
+
+/** A file the user picked or dropped, before it is imported (see `sources.inspect`). */
+export interface PendingSource {
+  /** Absolute path. Loadable via `app.fileUrl` until the project closes. */
+  path: string;
+  name: string;
+  kind: SourceKind;
+  size: number;
+  /** Videos: seconds, when ffprobe could read it. */
+  duration?: number;
+}
+
+/** One file to import with `sources.add`. */
+export interface SourceImport {
+  path: string;
+  /** Videos only. */
+  trim?: SourceTrim;
 }
 
 export interface RecentProject {
@@ -49,6 +70,8 @@ export interface PlanStep {
   stats?: Record<string, number | string>;
   /** Notices stored with the cached result (when cached). */
   notices?: StageNotice[];
+  /** Last recorded result from project.json (may be from older settings: compare `last.hash` with `hash`). */
+  last?: StepRecord;
 }
 
 export interface RunSummary {
@@ -108,8 +131,16 @@ export interface SplatCraftAPI {
     onChanged(cb: (p: OpenProject | null) => void): () => void;
   };
   sources: {
-    /** Absolute file paths (from drag & drop via `getPathForFile`) or a picker when omitted. */
-    add(paths?: string[], mode?: 'copy' | 'link'): Promise<ProjectMeta>;
+    /**
+     * Describes files before import and lets the renderer preview them.
+     * Shows a file picker when `paths` is omitted; `[]` when cancelled.
+     * Folders and missing files are skipped.
+     */
+    inspect(paths?: string[]): Promise<PendingSource[]>;
+    /** Imports files (absolute paths, e.g. from `inspect`). Re-drops of the same file are skipped. */
+    add(items: SourceImport[], mode?: 'copy' | 'link'): Promise<ProjectMeta>;
+    /** Changes an imported source, e.g. a video's trim (`null` clears it). */
+    update(id: string, patch: { trim?: SourceTrim | null }): Promise<ProjectMeta>;
     remove(ids: string[]): Promise<ProjectMeta>;
     /** Resolve a dropped File to its absolute path (Electron webUtils). */
     pathForFile(file: File): string;

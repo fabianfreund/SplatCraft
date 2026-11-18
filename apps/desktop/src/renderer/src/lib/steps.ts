@@ -7,7 +7,7 @@ const SHORT: Record<string, string> = {
   align: 'Align',
   train: 'Train',
   refine: 'Refine',
-  export: 'Export',
+  export: 'Edit',
 };
 
 /** Short stepper title derived from the stage category. */
