@@ -11,6 +11,8 @@ import { createServices, type Services } from './services';
 import { EngineEventHub } from './services/events';
 import { PreviewRecorder } from './services/previews';
 import { runScreenshot, runSelfTest } from './verify';
+import appIcon from '../../resources/icon.png?asset';
+import appIconMac from '../../resources/icon-mac.png?asset';
 
 const here = import.meta.dirname;
 const RENDERER_DEV_URL = process.env['ELECTRON_RENDERER_URL'];
@@ -60,6 +62,8 @@ if (!app.requestSingleInstanceLock()) {
 
 async function main() {
   if (process.platform === 'win32') app.setAppUserModelId('dev.splatcraft.app');
+  // Packaged builds take the icon from the bundle; in dev the dock would show Electron's.
+  if (process.platform === 'darwin' && !app.isPackaged) app.dock?.setIcon(appIconMac);
   services = await createServices();
   const s = services;
 
@@ -180,6 +184,7 @@ function createWindow() {
     minHeight: 700,
     show: false,
     title: 'SplatCraft',
+    icon: appIcon,
     backgroundColor: '#0b0c0f',
     ...(isMac ? { titleBarStyle: 'hiddenInset' as const, trafficLightPosition: { x: 16, y: 16 } } : {}),
     webPreferences: {

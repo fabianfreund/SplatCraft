@@ -7,6 +7,9 @@ directories:
 files:
   - out/**/*
   - package.json
+  # Window/dock icon, referenced by the main bundle as ../../resources/*.png
+  - resources/icon.png
+  - resources/icon-mac.png
   - "!**/*.map"
   - "!src/**"
   - "!**/{tsconfig*.json,electron.vite.config.*,electron-builder.yml}"

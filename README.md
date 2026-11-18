@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/assets/icon.png" width="128" height="128" alt="SplatCraft icon"></p>
+
 # SplatCraft
 
 **A free, open-source Gaussian Splatting studio.** Drop in photos or videos and get a 3D splat. SplatCraft extracts and filters frames, aligns the cameras, trains the splat with a live preview, and exports it, all on your own machine.
