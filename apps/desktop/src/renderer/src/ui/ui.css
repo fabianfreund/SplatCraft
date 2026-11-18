@@ -1,0 +1,34 @@
+/* Primitive styles that need pseudo-elements. Tokens only. */
+.sc-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 16px;
+  background: transparent;
+  outline: none;
+  --sc-slider-fill: var(--sc-fg-subtle);
+}
+.sc-slider--changed {
+  --sc-slider-fill: var(--sc-accent);
+}
+.sc-slider::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(to right, var(--sc-slider-fill) var(--sc-slider-pct), var(--sc-surface-4) var(--sc-slider-pct));
+}
+.sc-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4.5px;
+  border-radius: 50%;
+  background: var(--sc-fg);
+  box-shadow: var(--sc-shadow-sm), 0 0 0 3px transparent;
+  transition: box-shadow var(--sc-duration-fast) var(--sc-ease-out);
+}
+.sc-slider:hover::-webkit-slider-thumb,
+.sc-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: var(--sc-shadow-sm), 0 0 0 3px var(--sc-accent-soft);
+}
+.sc-slider:disabled {
+  opacity: 0.4;
+}

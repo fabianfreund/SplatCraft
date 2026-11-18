@@ -1,0 +1,15 @@
+{
+  "name": "splatcraft",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Cross-platform Gaussian Splatting studio",
+  "license": "MIT",
+  "packageManager": "pnpm@9.15.2",
+  "scripts": {
+    "dev": "pnpm --filter @splatcraft/desktop dev",
+    "build": "pnpm --filter @splatcraft/desktop build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "cli": "pnpm --filter @splatcraft/cli start"
+  }
+}

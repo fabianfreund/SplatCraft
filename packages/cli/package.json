@@ -1,0 +1,14 @@
+{
+  "name": "@splatcraft/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": { "splatcraft": "src/index.ts" },
+  "scripts": { "start": "tsx src/index.ts", "typecheck": "tsc -p ." },
+  "dependencies": {
+    "@splatcraft/core": "workspace:*",
+    "@splatcraft/plugins": "workspace:*",
+    "@splatcraft/toolchain": "workspace:*"
+  },
+  "devDependencies": { "@types/node": "^22.10.0", "tsx": "^4.23.15", "typescript": "^5.9.0" }
+}

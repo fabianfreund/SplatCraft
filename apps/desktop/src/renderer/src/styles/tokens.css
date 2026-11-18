@@ -1,0 +1,111 @@
+/*
+ * SplatCraft design tokens — the ONLY place raw colors, radii, type sizes,
+ * shadows and motion values live. Everything else (ui primitives, feature
+ * components, charts, the 3D viewer) reads these variables.
+ *
+ * To restyle the app, edit this file. A light theme can be added later as
+ * `:root[data-theme='light'] { … }` overriding the same variables.
+ */
+:root {
+  color-scheme: dark;
+
+  /* ── Surfaces (back → front) ───────────────────────────── */
+  --sc-bg: #0b0c0f;
+  --sc-surface-1: #111317;
+  --sc-surface-2: #16181d;
+  --sc-surface-3: #1c1f25;
+  --sc-surface-4: #23262d;
+  --sc-overlay: rgb(5 6 8 / 0.62);
+  --sc-viewport: #08090b;
+
+  /* ── Lines ─────────────────────────────────────────────── */
+  --sc-line: rgb(255 255 255 / 0.065);
+  --sc-line-strong: rgb(255 255 255 / 0.11);
+  --sc-line-focus: rgb(60 228 206 / 0.55);
+
+  /* ── Ink ───────────────────────────────────────────────── */
+  --sc-fg: #e9ebef;
+  --sc-fg-muted: #a1a7b1;
+  --sc-fg-subtle: #6d737e;
+  --sc-fg-faint: #464b54;
+
+  /* ── Accent (electric teal) ────────────────────────────── */
+  --sc-accent: #3ce4ce;
+  --sc-accent-strong: #5ff0dc;
+  --sc-accent-ink: #03211d; /* text on accent fills */
+  --sc-accent-soft: rgb(60 228 206 / 0.13);
+  --sc-accent-softer: rgb(60 228 206 / 0.07);
+
+  /* ── Status (reserved; never used as series colors) ────── */
+  --sc-success: #4ad991;
+  --sc-success-soft: rgb(74 217 145 / 0.13);
+  --sc-warning: #f2b84b;
+  --sc-warning-soft: rgb(242 184 75 / 0.14);
+  --sc-danger: #ff5f6d;
+  --sc-danger-soft: rgb(255 95 109 / 0.14);
+  --sc-info: #7aa7ff;
+  --sc-info-soft: rgb(122 167 255 / 0.14);
+
+  /* ── Data viz ──────────────────────────────────────────── */
+  --sc-chart-line: var(--sc-accent);
+  --sc-chart-fill: rgb(60 228 206 / 0.1);
+  --sc-chart-grid: rgb(255 255 255 / 0.05);
+  --sc-chart-axis: var(--sc-fg-subtle);
+  --sc-chart-crosshair: rgb(255 255 255 / 0.22);
+
+  /* ── 3D viewer ─────────────────────────────────────────── */
+  --sc-viewer-grid: #1b1e24;
+  --sc-viewer-grid-center: #262a31;
+  --sc-viewer-camera: #3ce4ce;
+  --sc-viewer-points: #c9ced6;
+
+  /* ── Type ──────────────────────────────────────────────── */
+  --sc-font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI Variable Text', 'Segoe UI', Inter, system-ui,
+    sans-serif;
+  --sc-font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI Variable Display', 'Segoe UI', Inter,
+    system-ui, sans-serif;
+  --sc-font-mono: ui-monospace, 'SF Mono', SFMono-Regular, 'Cascadia Code', Menlo, Consolas, monospace;
+
+  --sc-text-2xs: 10.5px;
+  --sc-text-xs: 11.5px;
+  --sc-text-sm: 12.5px;
+  --sc-text-md: 13.5px;
+  --sc-text-lg: 15px;
+  --sc-text-xl: 19px;
+  --sc-text-2xl: 26px;
+  --sc-text-3xl: 34px;
+
+  /* ── Radii ─────────────────────────────────────────────── */
+  --sc-radius-xs: 4px;
+  --sc-radius-sm: 6px;
+  --sc-radius-md: 8px;
+  --sc-radius-lg: 11px;
+  --sc-radius-xl: 16px;
+  --sc-radius-full: 999px;
+
+  /* ── Sizes (fixed boxes → no layout shift) ─────────────── */
+  --sc-spacing: 4px;
+  --sc-control-h-sm: 24px;
+  --sc-control-h: 28px;
+  --sc-control-h-lg: 40px;
+  --sc-topbar-h: 48px;
+  --sc-dock-h: 36px;
+  --sc-dock-expanded-h: 260px;
+  --sc-rail-w: 264px;
+  --sc-drawer-w: 340px;
+  --sc-traffic-lights-w: 84px;
+
+  /* ── Shadows ───────────────────────────────────────────── */
+  --sc-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --sc-shadow-md: 0 6px 20px -6px rgb(0 0 0 / 0.6), 0 0 0 1px var(--sc-line);
+  --sc-shadow-lg: 0 24px 64px -12px rgb(0 0 0 / 0.75), 0 0 0 1px var(--sc-line-strong);
+  --sc-shadow-glow: 0 0 0 1px rgb(60 228 206 / 0.35), 0 6px 24px -6px rgb(60 228 206 / 0.45);
+  --sc-inset-highlight: inset 0 1px 0 rgb(255 255 255 / 0.05);
+
+  /* ── Motion ────────────────────────────────────────────── */
+  --sc-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --sc-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --sc-duration-fast: 120ms;
+  --sc-duration-base: 200ms;
+  --sc-duration-slow: 360ms;
+}

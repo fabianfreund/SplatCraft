@@ -1,0 +1,11 @@
+node_modules/
+dist/
+out/
+.DS_Store
+*.log
+samples/**/*.splatcraft/
+.tools/
+
+# Test datasets are downloaded, not committed (see scripts/fetch-sample.sh)
+samples/*/images/
+*.tsbuildinfo

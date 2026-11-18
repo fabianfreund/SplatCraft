@@ -1,0 +1,206 @@
+@import 'tailwindcss';
+@import './tokens.css';
+@import '../ui/ui.css';
+
+/*
+ * Expose tokens to Tailwind. The default palette, radii and type scale are
+ * cleared so only design tokens can be used in class names.
+ */
+@theme inline {
+  --color-*: initial;
+  --color-bg: var(--sc-bg);
+  --color-surface-1: var(--sc-surface-1);
+  --color-surface-2: var(--sc-surface-2);
+  --color-surface-3: var(--sc-surface-3);
+  --color-surface-4: var(--sc-surface-4);
+  --color-overlay: var(--sc-overlay);
+  --color-viewport: var(--sc-viewport);
+  --color-line: var(--sc-line);
+  --color-line-strong: var(--sc-line-strong);
+  --color-line-focus: var(--sc-line-focus);
+  --color-fg: var(--sc-fg);
+  --color-fg-muted: var(--sc-fg-muted);
+  --color-fg-subtle: var(--sc-fg-subtle);
+  --color-fg-faint: var(--sc-fg-faint);
+  --color-accent: var(--sc-accent);
+  --color-accent-strong: var(--sc-accent-strong);
+  --color-accent-ink: var(--sc-accent-ink);
+  --color-accent-soft: var(--sc-accent-soft);
+  --color-accent-softer: var(--sc-accent-softer);
+  --color-success: var(--sc-success);
+  --color-success-soft: var(--sc-success-soft);
+  --color-warning: var(--sc-warning);
+  --color-warning-soft: var(--sc-warning-soft);
+  --color-danger: var(--sc-danger);
+  --color-danger-soft: var(--sc-danger-soft);
+  --color-info: var(--sc-info);
+  --color-info-soft: var(--sc-info-soft);
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  --font-sans: var(--sc-font-sans);
+  --font-display: var(--sc-font-display);
+  --font-mono: var(--sc-font-mono);
+
+  --text-*: initial;
+  --text-2xs: var(--sc-text-2xs);
+  --text-2xs--line-height: 14px;
+  --text-xs: var(--sc-text-xs);
+  --text-xs--line-height: 16px;
+  --text-sm: var(--sc-text-sm);
+  --text-sm--line-height: 18px;
+  --text-md: var(--sc-text-md);
+  --text-md--line-height: 20px;
+  --text-lg: var(--sc-text-lg);
+  --text-lg--line-height: 22px;
+  --text-xl: var(--sc-text-xl);
+  --text-xl--line-height: 26px;
+  --text-2xl: var(--sc-text-2xl);
+  --text-2xl--line-height: 32px;
+  --text-3xl: var(--sc-text-3xl);
+  --text-3xl--line-height: 40px;
+
+  --radius-*: initial;
+  --radius-xs: var(--sc-radius-xs);
+  --radius-sm: var(--sc-radius-sm);
+  --radius-md: var(--sc-radius-md);
+  --radius-lg: var(--sc-radius-lg);
+  --radius-xl: var(--sc-radius-xl);
+  --radius-full: var(--sc-radius-full);
+
+  --shadow-*: initial;
+  --shadow-sm: var(--sc-shadow-sm);
+  --shadow-md: var(--sc-shadow-md);
+  --shadow-lg: var(--sc-shadow-lg);
+  --shadow-glow: var(--sc-shadow-glow);
+
+  --spacing: var(--sc-spacing);
+  --ease-out: var(--sc-ease-out);
+  --ease-in-out: var(--sc-ease-in-out);
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    background: var(--sc-bg);
+    color: var(--sc-fg);
+    font-family: var(--sc-font-sans);
+    font-size: var(--sc-text-sm);
+    line-height: 18px;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow: hidden;
+    user-select: none;
+    cursor: default;
+  }
+  input,
+  textarea,
+  select,
+  button {
+    font: inherit;
+    color: inherit;
+  }
+  input,
+  textarea {
+    user-select: text;
+  }
+  ::selection {
+    background: var(--sc-accent-soft);
+  }
+  :focus-visible {
+    outline: 1.5px solid var(--sc-line-focus);
+    outline-offset: 1px;
+  }
+  /* Stable, thin scrollbars everywhere. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--sc-surface-4) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--sc-surface-4);
+    border-radius: 10px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@layer utilities {
+  .drag {
+    -webkit-app-region: drag;
+  }
+  .no-drag {
+    -webkit-app-region: no-drag;
+  }
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+  }
+  .scroll-stable {
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+  .ellipsis {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@keyframes sc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes sc-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes sc-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.985);
+  }
+}
+@keyframes sc-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+}
+@keyframes sc-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes sc-shimmer {
+  from {
+    background-position: -200px 0;
+  }
+  to {
+    background-position: 200px 0;
+  }
+}
+@keyframes sc-stripes {
+  to {
+    background-position: 16px 0;
+  }
+}
+@keyframes sc-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}

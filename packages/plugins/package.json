@@ -1,0 +1,15 @@
+{
+  "name": "@splatcraft/plugins",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": { "typecheck": "tsc -p .", "test": "vitest run --passWithNoTests" },
+  "dependencies": {
+    "@splatcraft/core": "workspace:*",
+    "sharp": "^0.35.5",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": { "@types/node": "^22.10.0", "typescript": "^5.9.0", "vitest": "^3.2.0" }
+}

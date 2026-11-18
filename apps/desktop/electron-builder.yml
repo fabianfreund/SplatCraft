@@ -1,0 +1,56 @@
+appId: dev.splatcraft.app
+productName: SplatCraft
+copyright: Copyright © 2026 SplatCraft contributors
+directories:
+  output: dist
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+  - "!**/*.map"
+  - "!src/**"
+  - "!**/{tsconfig*.json,electron.vite.config.*,electron-builder.yml}"
+# Native module: keep its .node binaries and libvips outside the asar.
+asarUnpack:
+  - "**/node_modules/sharp/**/*"
+  - "**/node_modules/@img/**/*"
+# Bundled native tools (ffmpeg, colmap, brush …) → <resources>/tools, see Toolchain.bundledDir.
+extraResources:
+  - from: resources/tools
+    to: tools
+    filter:
+      - "**/*"
+      - "!.gitkeep"
+fileAssociations:
+  - ext: splatcraft
+    name: SplatCraft Project
+    role: Editor
+mac:
+  category: public.app-category.graphics-design
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+  hardenedRuntime: true
+  darkModeSupport: true
+  notarize: false
+dmg:
+  artifactName: ${productName}-${version}-${arch}.${ext}
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: ${productName}-${version}-setup.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+linux:
+  category: Graphics
+  maintainer: SplatCraft contributors
+  target:
+    - AppImage
+    - deb
+  artifactName: ${productName}-${version}-${arch}.${ext}
+npmRebuild: false
+publish: null
