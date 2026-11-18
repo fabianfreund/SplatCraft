@@ -1,4 +1,6 @@
-# SplatCraft — Architecture (proposal)
+# SplatCraft architecture
+
+This is the target design. **Built in v0.1.x:** core engine with a content-hash cache, resume and cancel; plugins for media, quality, COLMAP, Brush, export and the OS/NVIDIA monitor; workflow templates; the CLI; the Electron app with live preview, Simple/Advanced modes, Monitor and Runs views, and themes. **Not built yet:** SQLite `project.db`, `utilityProcess` isolation (the engine runs in the main process), the `packages/viewer` and `packages/ui` split (both live in the renderer), the Rust `native/sysmon` helper, the AI pack, forecasts, remote monitoring and the iPhone app. Sections below that describe those are plans.
 
 ## Goals
 1. **Simple by default, deep on demand:** one "Process" button with presets; every stage and parameter is reachable in Advanced mode.
@@ -19,7 +21,7 @@
 | Project DB | `project.json` + SQLite (`better-sqlite3`) for per-asset metadata | Human-readable top level; fast queries over thousands of frames. |
 | Schemas | zod | Params schema → validation **and** auto-generated Advanced UI. |
 
-## Monorepo layout
+## Monorepo layout (target; see CLAUDE.md for the current layout)
 ```
 apps/
   desktop/            Electron main, preload, renderer (React)

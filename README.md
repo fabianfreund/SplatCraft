@@ -6,7 +6,10 @@
 
 ![SplatCraft](docs/design/screenshots/after/04-advanced-training.png)
 
-> **Status:** early prototype (v0.1). Tested on macOS (Apple Silicon). Windows and Linux are wired up but untested.
+> **Status:** early prototype (v0.1.x). Tested on macOS (Apple Silicon). Windows and Linux are wired up but untested.
+
+## Download
+Get the latest build from [Releases](https://github.com/fabianfreund/SplatCraft/releases/latest): a signed and notarized `.dmg` for macOS (Apple Silicon or Intel), an `.exe` installer for Windows, and an `.AppImage` / `.deb` for Linux.
 
 ## Highlights
 - **One flow from drop to splat:** Media → Review → Align → Train → Export, shown as a clear stepper.
@@ -60,7 +63,7 @@ export default definePlugin({
 ```
 Steps connect by artifact kind (`sources → frames → dataset → splat → export`), so any stage can be swapped for another with the same inputs and outputs. The params schema drives both validation and the Advanced UI.
 
-More detail is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/design/UI-REVIEW.md](docs/design/UI-REVIEW.md) and the [UI library guide](apps/desktop/src/renderer/src/ui/README.md).
+More detail is in [CLAUDE.md](CLAUDE.md) (contributor and agent guide), [docs/RELEASING.md](docs/RELEASING.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/design/UI-REVIEW.md](docs/design/UI-REVIEW.md) and the [UI library guide](apps/desktop/src/renderer/src/ui/README.md).
 
 ## Built with
 **External tools** (each keeps its own license):
