@@ -23,7 +23,9 @@ jobs:
           - os: windows-latest
             target: --win
           - os: ubuntu-latest
-            target: --linux
+            # executableName is also in electron-builder.yml; repeated here so re-running
+            # an older tag (manual run) builds Linux too. (Linux only: PowerShell mangles it.)
+            target: --linux -c.linux.executableName=splatcraft
     runs-on: ${{ matrix.os }}
     env:
       TAG: ${{ inputs.tag || github.ref_name }}
@@ -45,8 +47,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: |
           pnpm exec electron-vite build
-          # executableName is also set here so re-running an older tag (manual run) builds Linux too.
-          pnpm exec electron-builder ${{ matrix.target }} --publish never -c.linux.executableName=splatcraft
+          pnpm exec electron-builder ${{ matrix.target }} --publish never
       - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
