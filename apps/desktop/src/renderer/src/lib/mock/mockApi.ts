@@ -65,7 +65,7 @@ export function createMockApi(): SplatCraftAPI {
   const install = emitter<{ id: string; fraction: number; message: string }>();
   const updates = emitter<UpdateState>();
   // `?update` simulates a newer release being found and downloaded.
-  let update: UpdateState = { status: 'idle', version: '0.1.2', auto: true };
+  let update: UpdateState = { status: 'idle', version: '0.1.3', auto: true };
   const setUpdate = (patch: Partial<UpdateState>) => {
     update = { ...update, ...patch };
     updates.emit(update);
@@ -316,7 +316,7 @@ export function createMockApi(): SplatCraftAPI {
 
   const api: SplatCraftAPI = {
     app: {
-      info: () => delay<AppInfo>({ version: '0.1.2', platform: 'darwin', arch: 'arm64', electron: '45.3.3' }),
+      info: () => delay<AppInfo>({ version: '0.1.3', platform: 'darwin', arch: 'arm64', electron: '45.3.3' }),
       fileUrl: (p) => {
         const hit = files.get(p);
         if (hit) return hit;
@@ -341,7 +341,7 @@ export function createMockApi(): SplatCraftAPI {
           setUpdate({ status: 'current', checkedAt: new Date().toISOString() });
           return update;
         }
-        setUpdate({ status: 'downloading', available: '0.1.3', fraction: 0 });
+        setUpdate({ status: 'downloading', available: '0.1.4', fraction: 0 });
         for (let i = 1; i <= 10; i++) {
           await sleep(250);
           setUpdate({ fraction: i / 10 });
