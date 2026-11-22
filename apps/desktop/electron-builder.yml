@@ -64,6 +64,8 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
 linux:
+  # Default comes from the package name (@splatcraft/desktop), which AppImage rejects.
+  executableName: splatcraft
   category: Graphics
   maintainer: SplatCraft contributors
   target:

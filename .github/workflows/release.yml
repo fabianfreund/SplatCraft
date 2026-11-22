@@ -45,7 +45,8 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: |
           pnpm exec electron-vite build
-          pnpm exec electron-builder ${{ matrix.target }} --publish never
+          # executableName is also set here so re-running an older tag (manual run) builds Linux too.
+          pnpm exec electron-builder ${{ matrix.target }} --publish never -c.linux.executableName=splatcraft
       - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
