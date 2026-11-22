@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { app, BrowserWindow, ipcMain, shell, webContents } from 'electron';
 import { normalizeTrim, type PipelineSpec, type PresetId, type SourceInput, type SourceTrim } from '@splatcraft/core';
-import { IPC, type AppInfo, type OpenProject, type PendingSource, type PipelineState, type SourceImport } from '@shared/api';
+import { IPC, type AppInfo, type InvokeMethod, type OpenProject, type PendingSource, type PipelineState, type SourceImport } from '@shared/api';
 import type { EngineEventHub } from './services/events';
 import type { Services } from './services';
 import { assertPreset, listRuns, readMetrics, readNotices, validateSpec } from './services/pipeline';
@@ -27,7 +27,7 @@ export function broadcast(channel: string, payload: unknown) {
 export function createHandlers(s: Services, hub: EngineEventHub): Record<string, Handler> {
   const { registry, toolchain, engine, projects, monitor, updater } = s;
 
-  const handlers: Record<string, Handler> = {
+  const handlers: Record<InvokeMethod, Handler> = {
     /* app */
     'app.info': (): AppInfo => ({
       version: app.getVersion(),

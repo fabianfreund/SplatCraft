@@ -1,12 +1,8 @@
 import * as THREE from 'three';
 import { CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
-import { token } from './tokens';
+import { TONE_TOKEN, token } from './tokens';
 import type { MarkerTone, Vec3, ViewerMarkers } from './ViewerAPI';
 
-const TONE_TOKEN: Record<MarkerTone, [string, string]> = {
-  ground: ['--sc-viewer-ground', '#4ad991'],
-  measure: ['--sc-viewer-measure', '#f2b84b'],
-};
 /** Overlays draw after (and over) the scene. */
 const ON_TOP = 1000;
 const POINT_PX = 13;

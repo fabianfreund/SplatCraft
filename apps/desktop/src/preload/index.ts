@@ -4,10 +4,10 @@
  * channel that main validates against an allowlist.
  */
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron';
-import { IPC, type SplatCraftAPI } from '@shared/api';
+import { IPC, type InvokeMethod, type SplatCraftAPI } from '@shared/api';
 import { toFileUrl } from '@shared/file-url';
 
-const invoke = <T>(method: string, ...args: unknown[]) => ipcRenderer.invoke(IPC.invoke, method, ...args) as Promise<T>;
+const invoke = <T>(method: InvokeMethod, ...args: unknown[]) => ipcRenderer.invoke(IPC.invoke, method, ...args) as Promise<T>;
 
 function on<T>(channel: string, cb: (payload: T) => void): () => void {
   const listener = (_e: IpcRendererEvent, payload: T) => cb(payload);

@@ -210,6 +210,20 @@ export interface SplatCraftAPI {
   };
 }
 
+/**
+ * Method names sent over `IPC.invoke`: every Promise-returning `SplatCraftAPI` member
+ * (`projects.recent` …) except `on*` subscriptions, plus the preload's monitor (un)subscribe.
+ * The preload and the main handler table are typed with it, so they can't drift apart.
+ */
+export type InvokeMethod =
+  | {
+      [G in keyof SplatCraftAPI]: {
+        [M in keyof SplatCraftAPI[G]]: M extends `on${string}` ? never : SplatCraftAPI[G][M] extends (...a: any[]) => Promise<any> ? `${G}.${M & string}` : never;
+      }[keyof SplatCraftAPI[G]];
+    }[keyof SplatCraftAPI]
+  | 'monitor.subscribe'
+  | 'monitor.unsubscribe';
+
 /** IPC channel names (main ↔ preload). */
 export const IPC = {
   invoke: 'sc:invoke', // (method: string, ...args) → result

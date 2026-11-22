@@ -80,7 +80,7 @@ interface StageContext<P, I> {
   signal: AbortSignal; log: Logger;
 }
 ```
-Plugins register stages, viewers, importers (e.g. the iPhone capture format) and exporters through one `registerPlugin()` entry point. Built-ins use the same API.
+Plugins register stages, viewers, importers (e.g. the iPhone capture format) and exporters through one `definePlugin()` entry point. Built-ins use the same API.
 
 ## Live preview (updates while processing)
 Every stage can emit `PreviewEvent`s, and the viewer shows whatever is latest:

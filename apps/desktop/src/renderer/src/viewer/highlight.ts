@@ -1,12 +1,8 @@
 import { SplatEdit, SplatEditRgbaBlendMode, SplatEditSdf, SplatEditSdfType } from '@sparkjsdev/spark';
 import * as THREE from 'three';
-import { token } from './tokens';
-import type { MarkerTone, Vec3, ViewerHighlight } from './ViewerAPI';
+import { TONE_TOKEN, token } from './tokens';
+import type { Vec3, ViewerHighlight } from './ViewerAPI';
 
-const TONE_TOKEN: Record<MarkerTone, [string, string]> = {
-  ground: ['--sc-viewer-ground', '#4ad991'],
-  measure: ['--sc-viewer-measure', '#f2b84b'],
-};
 /** How strongly highlighted splats are tinted (added to their color). */
 const TINT = 0.55;
 /** Sizes relative to the content radius. */
