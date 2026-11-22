@@ -6,7 +6,7 @@ import { ensureDir, execText, exists, freshDir, linkOrCopy, listImages, pool } f
 import { throttledProgress } from '../util/preview.js';
 import { emitModelPreview, snapshotFrequency, watchSnapshots } from './live.js';
 import { colmapLineProgress, parseModelAnalyzer, type ModelStats } from './model.js';
-import { cameraCounts, detectCameras, groupCameras, type CameraGroup } from './cameras.js';
+import { cameraCounts, detectCameras, groupCameras, perImageGroups, type CameraGroup } from './cameras.js';
 import { injectTiePoints, normalizeTracks, tieTrackSchema, trackPairs } from './tiepoints.js';
 
 const manualLinux = { type: 'manual' as const, instructions: 'Install COLMAP 4.x from your package manager or build it from source.', url: 'https://colmap.github.io/install.html' };
@@ -115,7 +115,7 @@ export const colmapStage = defineStage<ColmapParams>({
     // which have a focal prior. Photos without lens data each get their own camera.
     progress(0, 'Detecting cameras', true);
     const frameCams = await detectCameras(files);
-    const groups: CameraGroup[] = p.singleCamera ? groupCameras(frameCams) : [{ shared: false, label: 'Per image', files, focal: frameCams.some((c) => c.focal) }];
+    const groups: CameraGroup[] = p.singleCamera ? groupCameras(frameCams) : perImageGroups(frameCams);
     const counts = cameraCounts(groups);
     // An unordered photo collection (no video, small enough for exhaustive matching) gets the
     // thorough settings: wide-baseline features, guided matching, forgiving incremental mapping.

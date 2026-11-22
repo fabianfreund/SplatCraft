@@ -185,7 +185,7 @@ export function FeaturePointEditor({ image, src, frameUrl }: Props) {
   const sel = tracks.find((t) => t.id === selected);
   const ref = sel ? [...sel.points].reverse().find((p) => p.image !== image) : undefined;
   const refUrl = ref ? frameUrl(ref.image) : undefined;
-  const aspect = natural ? natural.h / natural.w : 2 / 3;
+  const refAspect = useAspect(refUrl) ?? (natural ? natural.h / natural.w : 2 / 3);
   const loupeScale = Math.max(LOUPE_MIN, LOUPE_ZOOM / zoom.z);
   const at = (m: { id: number; x: number; y: number }): Pt => (drag?.moved && drag.id === m.id ? drag : m);
 
@@ -290,8 +290,8 @@ export function FeaturePointEditor({ image, src, frameUrl }: Props) {
                 height: LOUPE,
                 backgroundImage: `url("${refUrl}")`,
                 backgroundRepeat: 'no-repeat',
-                backgroundSize: `${LOUPE * LOUPE_ZOOM}px ${LOUPE * LOUPE_ZOOM * aspect}px`,
-                backgroundPosition: `${LOUPE / 2 - ref.x * LOUPE * LOUPE_ZOOM}px ${LOUPE / 2 - ref.y * LOUPE * LOUPE_ZOOM * aspect}px`,
+                backgroundSize: `${LOUPE * LOUPE_ZOOM}px ${LOUPE * LOUPE_ZOOM * refAspect}px`,
+                backgroundPosition: `${LOUPE / 2 - ref.x * LOUPE * LOUPE_ZOOM}px ${LOUPE / 2 - ref.y * LOUPE * LOUPE_ZOOM * refAspect}px`,
               }}
             >
               <span className="absolute left-1/2 top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-accent" />
@@ -347,4 +347,19 @@ export function FeaturePointEditor({ image, src, frameUrl }: Props) {
       </div>
     </div>
   );
+}
+
+/** Height / width of the image at `url` once it has loaded (frames can differ: portrait and landscape). */
+function useAspect(url: string | undefined): number | undefined {
+  const [aspect, setAspect] = useState<{ url: string; value: number }>();
+  useEffect(() => {
+    if (!url) return;
+    const img = new Image();
+    img.onload = () => img.naturalWidth && setAspect({ url, value: img.naturalHeight / img.naturalWidth });
+    img.src = url;
+    return () => {
+      img.onload = null;
+    };
+  }, [url]);
+  return aspect && aspect.url === url ? aspect.value : undefined;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cameraCounts, classifyFrame, groupCameras } from './cameras.js';
+import { cameraCounts, classifyFrame, groupCameras, perImageGroups } from './cameras.js';
 
 const iphone = { Image: { Make: 'Apple', Model: 'iPhone 15 Pro' }, Photo: { LensModel: 'back 6.765mm', FocalLength: 6.765, FocalLengthIn35mmFilm: 24 } };
 
@@ -29,5 +29,10 @@ describe('camera detection', () => {
       [false, ['x.jpg', 'y.jpg']],
     ]);
     expect(cameraCounts(groups)).toEqual({ cameras: 5, withFocal: 2 });
+  });
+
+  it('counts focal priors per frame when every image gets its own camera', () => {
+    const frames = [classifyFrame('a.jpg', 1200, 1600, iphone), classifyFrame('x.jpg', 1067, 1600, undefined), classifyFrame('y.jpg', 1067, 1600, undefined)];
+    expect(cameraCounts(perImageGroups(frames))).toEqual({ cameras: 3, withFocal: 1 });
   });
 });

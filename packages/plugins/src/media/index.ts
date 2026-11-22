@@ -50,7 +50,8 @@ type Entry = SourceEntry & { abs: string };
 export const framesStage = defineStage<FramesParams>({
   id: 'splatcraft.prepare.frames',
   // Unchanged output without a trim, which enters the cache key on their own.
-  version: '1',
+  // 2: photos keep their camera EXIF (alignment groups cameras and reads focal priors from it).
+  version: '2',
   title: 'Frames',
   description: 'Normalizes photos (EXIF rotation, resize, JPEG; camera EXIF kept) and extracts sharp frames from videos.',
   category: 'prepare',

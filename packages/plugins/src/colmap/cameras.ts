@@ -77,6 +77,16 @@ export function groupCameras(frames: readonly FrameCamera[]): CameraGroup[] {
   return out;
 }
 
+/** One camera per frame ("single camera" off), split by focal prior so the counts stay right. */
+export function perImageGroups(frames: readonly FrameCamera[]): CameraGroup[] {
+  const withFocal = frames.filter((f) => f.focal).map((f) => f.file);
+  const without = frames.filter((f) => !f.focal).map((f) => f.file);
+  return [
+    ...(withFocal.length ? [{ shared: false, label: 'Per image (lens data)', files: withFocal, focal: true }] : []),
+    ...(without.length ? [{ shared: false, label: 'Per image', files: without, focal: false }] : []),
+  ];
+}
+
 /** Number of COLMAP cameras the groups produce, and how many have a focal prior. */
 export function cameraCounts(groups: readonly CameraGroup[]) {
   let cameras = 0;
