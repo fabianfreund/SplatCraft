@@ -1,6 +1,7 @@
-import { ChevronLeft, ChevronRight, Eye, EyeOff, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Crosshair, Eye, EyeOff, X } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Badge, Button, cn, IconButton, Kbd } from '../../ui';
+import { FeaturePointEditor } from './FeaturePointEditor';
 
 export interface LightboxItem {
   key: string;
@@ -23,10 +24,12 @@ interface MediaLightboxProps {
   onClose: () => void;
   /** Include/exclude the current item. Omit where excluding isn't possible (the slot stays reserved). */
   onToggle?: (item: LightboxItem) => void;
+  /** Feature-point editing for frames. Omit where it isn't possible (the slot stays reserved). */
+  points?: { active: boolean; onToggle(): void; frameUrl(name: string): string | undefined };
 }
 
 /** Large view of one gallery item over the gallery: ←/→ navigate, X toggles, Esc closes. */
-export function MediaLightbox({ items, index, onIndex, onClose, onToggle }: MediaLightboxProps) {
+export function MediaLightbox({ items, index, onIndex, onClose, onToggle, points }: MediaLightboxProps) {
   const item = items[index];
   const root = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState<string>();
@@ -90,6 +93,27 @@ export function MediaLightbox({ items, index, onIndex, onClose, onToggle }: Medi
           </span>
           <Button
             size="sm"
+            variant={points?.active ? 'primary' : 'subtle'}
+            icon={Crosshair}
+            minWidth={132}
+            aria-hidden={!points}
+            aria-pressed={!!points?.active}
+            tabIndex={points ? undefined : -1}
+            className={cn(!points && 'invisible')}
+            onClick={() => points?.onToggle()}
+            tooltip={
+              points && (
+                <span className="flex items-center gap-2">
+                  Click the same spot in several frames to help alignment
+                  <Kbd>P</Kbd>
+                </span>
+              )
+            }
+          >
+            Feature points
+          </Button>
+          <Button
+            size="sm"
             variant={out ? 'subtle' : 'secondary'}
             icon={out ? Eye : EyeOff}
             minWidth={92}
@@ -114,7 +138,9 @@ export function MediaLightbox({ items, index, onIndex, onClose, onToggle }: Medi
       {/* Stage */}
       <div className="relative min-h-0 flex-1 px-16 pb-6">
         <div className="flex size-full items-center justify-center overflow-hidden rounded-md bg-surface-1">
-          {showImg ? (
+          {showImg && points?.active ? (
+            <FeaturePointEditor key={item.key} image={item.name} src={item.src!} frameUrl={points.frameUrl} />
+          ) : showImg ? (
             <img
               key={item.key}
               src={item.src}

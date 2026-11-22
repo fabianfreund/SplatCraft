@@ -243,7 +243,11 @@ export function createMockApi(): SplatCraftAPI {
             files.set('/mock/sparse/points_b.ply', URL.createObjectURL(makePointCloudPly(5200, 5)));
             files.set('/mock/sparse/points.ply', URL.createObjectURL(makePointCloudPly(12000, 9)));
           }
-          const cams = makeCameraRing(64);
+          // Two frames don't align unless they share feature points with other frames.
+          const tracks = (spec.steps.find((s) => s.key === st.key)?.params.tiePoints as { points: { image: string }[] }[] | undefined) ?? [];
+          const helped = new Set(tracks.filter((t) => new Set(t.points.map((p) => p.image)).size >= 2).flatMap((t) => t.points.map((p) => p.image)));
+          const lost = ['frame_0047.jpg', 'frame_0064.jpg'].filter((n) => !helped.has(n));
+          const cams = makeCameraRing(nFrames).filter((c) => !lost.includes(c.name));
           for (let i = 0; i <= 40; i++) {
             if (running?.abort) throw new Error('cancel');
             const ph = phases[Math.min(3, Math.floor(i / 10.5))];
@@ -258,9 +262,14 @@ export function createMockApi(): SplatCraftAPI {
               emit({ type: 'stage.preview', runId, key: st.key, preview: { kind: 'cameras', cameras: cams } });
               emit({ type: 'stage.preview', runId, key: st.key, preview: { kind: 'pointcloud', path: '/mock/sparse/points.ply', points: 12000 } });
             }
-            if (i === 30) {
-              log('2 images could not be registered: frame_0047.jpg, frame_0064.jpg', 'warn');
-              notice({ level: 'warning', title: 'Only 60 of 62 cameras aligned', detail: 'frame_0047.jpg and frame_0064.jpg could not be registered.', hint: 'Usually harmless. If parts of the scene are missing, add photos of that area.' });
+            if (i === 30 && lost.length) {
+              log(`${lost.length} images could not be registered: ${lost.join(', ')}`, 'warn');
+              notice({
+                level: 'warning',
+                title: `${lost.length} frame${lost.length === 1 ? '' : 's'} not aligned`,
+                detail: `${lost.join(' and ')} could not be registered.`,
+                hint: 'Mark the same spots in an unaligned frame and in aligned ones (Prepare step → Feature points).',
+              });
             }
             await tick(110);
           }

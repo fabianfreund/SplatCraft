@@ -4,7 +4,7 @@ export interface Chip<T extends string> {
   value: T;
   label: string;
   count?: number;
-  tone?: 'neutral' | 'success' | 'danger';
+  tone?: 'neutral' | 'success' | 'warning' | 'danger';
 }
 
 /** Filter chips with fixed-width counts (no shifting as numbers change). */
@@ -25,7 +25,7 @@ export function ChipGroup<T extends string>({ value, chips, onChange }: { value:
               active ? 'border-line-strong bg-surface-4 text-fg' : 'border-transparent text-fg-subtle hover:bg-surface-2 hover:text-fg-muted',
             )}
           >
-            {c.tone && c.tone !== 'neutral' && <span className={cn('size-1.5 rounded-full', c.tone === 'success' ? 'bg-success' : 'bg-danger')} />}
+            {c.tone && c.tone !== 'neutral' && <span className={cn('size-1.5 rounded-full', c.tone === 'success' ? 'bg-success' : c.tone === 'warning' ? 'bg-warning' : 'bg-danger')} />}
             {c.label}
             {c.count !== undefined && <span className="tnum min-w-[22px] text-right text-2xs text-fg-subtle">{c.count}</span>}
           </button>

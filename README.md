@@ -12,9 +12,11 @@
 Get the latest build from [Releases](https://github.com/fabianfreund/SplatCraft/releases/latest): a signed and notarized `.dmg` for macOS (Apple Silicon or Intel), an `.exe` installer for Windows, and an `.AppImage` / `.deb` for Linux.
 
 ## Highlights
-- **One flow from drop to splat:** Media → Review → Align → Train → Export, shown as a clear stepper.
+- **One flow from drop to splat:** Media → Prepare → Align → Train → Edit, shown as a clear stepper.
 - **Simple and Advanced modes:** presets for everyone, plus per-step parameters, monitoring and run history for those who want them.
 - **Live 3D preview:** points, cameras and the splat update while training runs.
+- **Help alignment by hand:** frames that didn't align are marked; click the same spots in several frames and COLMAP uses them as extra matches.
+- **Auto-update:** new releases install from GitHub in the background.
 - **Hardware monitor:** GPU, VRAM, CPU, RAM and disk, plus training charts.
 - **Your look:** dark, light or system theme, accent color, density, text size and custom themes.
 - **Extensible:** every step is a plugin, so the trainer and other engines can be swapped.

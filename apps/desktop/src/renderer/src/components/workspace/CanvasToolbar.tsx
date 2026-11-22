@@ -14,12 +14,14 @@ import {
   Camera,
   Copy,
   Download,
+  Eraser,
   FastForward,
   Focus,
   FolderOpen,
   FolderPlus,
   Gem,
   ImageDown,
+  Crosshair,
   LandPlot,
   Play,
   RotateCw,
@@ -35,9 +37,10 @@ import { fieldsFromSchema } from '../../lib/schema';
 import { shortTitle } from '../../lib/steps';
 import { useApp } from '../../store/app';
 import { pushMessage } from '../../store/messages';
-import { descriptorFor, effectiveSelectedKey, stepStatus, usePipeline } from '../../store/pipeline';
+import { descriptorFor, effectiveSelectedKey, reviewStepKey, stepStatus, usePipeline } from '../../store/pipeline';
 import { useViewer } from '../../store/viewer';
 import { alignmentStepKey, useEdit, type EditTool } from '../../store/edit';
+import { currentTracks, tieStepKey, useTiePoints } from '../../store/tiepoints';
 import { Slider, Toolbar, ToolbarButton, ToolbarDivider, ToolbarSection, ToolbarToggleGroup, Tooltip, type ToolbarToggle } from '../../ui';
 import { addSources } from './useDrop';
 
@@ -62,6 +65,13 @@ interface Ctx {
   pickable: boolean;
   tool: EditTool | null;
   setTool(t: EditTool | null): void;
+  /** Feature points can be placed here (frames exist and a step takes them). */
+  pointable: boolean;
+  pointing: boolean;
+  /** Number of feature points (tracks). */
+  points: number;
+  setPointing(on: boolean): void;
+  clearPoints(): void;
 }
 
 interface Action {
@@ -92,24 +102,35 @@ const rerun = (c: Ctx, label: string): Action => ({ id: 'rerun', icon: RotateCw,
 const runThis = (c: Ctx, text: string): Action => ({ id: 'run', icon: Play, label: `Run up to ${text}`, text, disabled: !c.step.enabled, onClick: () => c.run({ untilKey: c.step.key }, 'step') });
 const proceed = (c: Ctx, text = 'Continue'): Action => ({ id: 'continue', icon: ArrowRight, label: 'Run the remaining steps', text, onClick: () => c.run(undefined, 'all') });
 
+/** Feature points: on the frame-review step and on the step that takes them (alignment). */
+const pointsTool = (c: Ctx): ToolbarToggle[] =>
+  c.pointable
+    ? [{ id: 'points', icon: Crosshair, label: 'Feature points · open a frame and click the same spot in several frames', shortcut: 'P', active: c.pointing, disabled: c.running, onToggle: () => c.setPointing(!c.pointing) }]
+    : [];
+const clearPointsAction = (c: Ctx): Action[] =>
+  c.pointable ? [{ id: 'clear-points', icon: Eraser, label: `Clear feature points${c.points ? ` (${c.points})` : ''}`, disabled: !c.points || c.running, onClick: c.clearPoints }] : [];
+
 export const STEP_ACTIONS: Record<string, StepTools> = {
   prepare: {
     actions: (c) => [rerun(c, 'Re-extract frames')],
     primary: (c) => (c.done ? proceed(c) : runThis(c, 'Extract')),
   },
   filter: {
+    tools: (c) => pointsTool(c),
     actions: (c) => {
       const ex = (c.step.params.excluded as string[] | undefined)?.length ?? 0;
       const inc = (c.step.params.included as string[] | undefined)?.length ?? 0;
       return [
         { id: 'reset', icon: Undo2, label: `Reset manual picks${ex + inc ? ` (${ex + inc})` : ''}`, disabled: !(ex + inc) || c.running, onClick: () => c.setParams({ excluded: [], included: [] }) },
         rerun(c, 'Re-score frames'),
+        ...clearPointsAction(c),
       ];
     },
     primary: (c) => proceed(c),
   },
   align: {
-    actions: (c) => [rerun(c, 'Re-align cameras')],
+    tools: (c) => pointsTool(c),
+    actions: (c) => [...clearPointsAction(c), rerun(c, 'Re-align cameras')],
     primary: (c) => (c.done ? proceed(c) : runThis(c, 'Align')),
   },
   train: {
@@ -204,6 +225,8 @@ export function CanvasToolbar() {
   const updateStep = usePipeline((s) => s.updateStep);
   const tool = useEdit((s) => s.tool);
   const hasContent = useViewer((s) => s.hasContent);
+  const pointing = useTiePoints((s) => s.active);
+  const hasFrames = usePipeline((s) => (s.previews.images?.paths.length ?? 0) > 0);
 
   const step = spec?.steps.find((x) => x.key === key);
   const descriptor = step ? descriptorFor(stages, step.stageId) : undefined;
@@ -230,6 +253,17 @@ export function CanvasToolbar() {
       if (t) useApp.getState().setTab('viewer');
       useEdit.getState().setTool(t);
     },
+    pointable: !!tieStepKey(spec, stages) && (tieStepKey(spec, stages) === step.key || reviewStepKey(spec, stages) === step.key) && hasFrames,
+    pointing,
+    points: currentTracks(spec, stages).length,
+    setPointing: (on) => {
+      if (on) {
+        useApp.getState().setTab('gallery');
+        useApp.getState().setGallery('frames');
+      }
+      useTiePoints.getState().setActive(on);
+    },
+    clearPoints: () => useTiePoints.getState().clear(),
   };
   const tools = STEP_ACTIONS[descriptor?.category ?? ''] ?? FALLBACK;
   const toggles = tools.tools?.(ctx) ?? [];

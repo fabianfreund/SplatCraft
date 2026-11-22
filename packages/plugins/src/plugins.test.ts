@@ -6,6 +6,7 @@ import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 import { exportStep, parseBrushLine } from './brush/parse.js';
 import { colmapLineProgress, colmapPoseToCamera, parseImagesTxt, parseModelAnalyzer } from './colmap/model.js';
+import { colmapStage } from './colmap/index.js';
 import { builtinPlugins, defaultPipeline } from './index.js';
 import { parseIoregAccelerator, parseNvidiaSmi } from './monitor/index.js';
 import { decideFrames } from './quality/decide.js';
@@ -192,5 +193,15 @@ describe('monitor parsers', () => {
     expect(parseIoregAccelerator(io)).toMatchObject({ name: 'Apple M2', vendor: 'apple', utilization: 32, vramUsedMB: 326 });
     expect(parseNvidiaSmi('NVIDIA GeForce RTX 4090, 87, 12000, 24564, 66, 350.12\n')[0]).toMatchObject({ utilization: 87, vramUsedMB: 12000, vramTotalMB: 24564, temperatureC: 66, powerW: 350.12 });
     expect(parseNvidiaSmi('GPU, [N/A], 1, 2, 3, [N/A]')[0].utilization).toBeUndefined();
+  });
+});
+
+describe('colmap feature points (params)', () => {
+  it('leaves the cache key of existing projects alone while unset', () => {
+    const params = resolveParams(colmapStage, 'balanced', {});
+    expect(params.tiePoints).toBeUndefined();
+    const tiePoints = [{ id: 1, points: [{ image: 'a.jpg', x: 0.5, y: 0.5 }, { image: 'b.jpg', x: 0.4, y: 0.5 }] }];
+    expect(resolveParams(colmapStage, 'balanced', { tiePoints }).tiePoints).toEqual(tiePoints);
+    expect(() => resolveParams(colmapStage, 'balanced', { tiePoints: [{ id: 1, points: [{ image: 'a.jpg', x: 2, y: 0 }] }] })).toThrow();
   });
 });

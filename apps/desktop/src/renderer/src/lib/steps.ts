@@ -3,7 +3,7 @@ import { formatNumber } from './format';
 
 const SHORT: Record<string, string> = {
   prepare: 'Media',
-  filter: 'Review',
+  filter: 'Prepare',
   align: 'Align',
   train: 'Train',
   refine: 'Refine',

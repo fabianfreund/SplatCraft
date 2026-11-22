@@ -90,6 +90,15 @@ Every stage can emit `PreviewEvent`s, and the viewer shows whatever is latest:
 | Frames | Thumbnails stream into the media grid as they are extracted. |
 | Quality filter | Each thumbnail gets a sharpness/exposure badge; rejected frames are greyed out, with one-click override. |
 | Align | Sparse point cloud and camera frustums appear as COLMAP writes snapshot models. For ARKit captures, the poses show instantly. |
+
+**Camera detection (start of Align, `packages/plugins/src/colmap/cameras.ts`).** The media stage keeps camera EXIF on photos. Align groups frames into cameras: photos with EXIF by body + lens + focal length + size (COLMAP reads the focal length as a prior), frames of one video per video and size, and photos without lens data (downloads, edits) one camera each, so unrelated lenses never share intrinsics. A notice reports cameras and lens data. An unordered photo collection (no video, at most 150 photos) gets wide-baseline features (affine shape, domain-size pooling), guided matching and forgiving incremental mapping (15 instead of 30 inliers to register an image). When fewer than half the cameras have a focal prior, the global mapper is skipped (it fails without priors). On a 13-photo stock set of one building (no EXIF) this took Align from 3 to 7 cameras with two clicked tracks.
+
+**Feature points (manual alignment help).** When frames don't align, the Gallery marks them "not aligned" (frames missing from the camera preview). On the Prepare (frame review) and Align steps, *Feature points* (P) lets the user click the same spot in several frames in the image preview (loupe, numbered draggable markers, a crop of the selected point in another frame). Tracks go into the step's `tiePoints` param as fractions of the image size; the renderer finds the step by that param, like `alignment`. In COLMAP (`packages/plugins/src/colmap/tiepoints.ts`):
+1. With sequential matching, frames that share a track are also matched (`matches_importer --match_type pairs`, normal settings); exhaustive matching has tried every pair already. Looser ratio tests were tried and rejected: once a track spans many frames they flood the whole set with outliers.
+2. After matching, the points are appended as keypoints to COLMAP's database (`node:sqlite`; appending keeps existing indices valid). Each tracked pair's matches become SIFT + clicked, and its verification is dropped.
+3. `matches_importer --match_type raw` re-verifies those pairs (minimum 8 inliers instead of 15, since the clicked matches are trusted), so the two-view geometry is estimated from all matches. COLMAP builds multi-view tracks from the pairwise matches.
+
+Clicked points add to SIFT's matches; COLMAP still needs about 30 inliers to register an image (`Mapper.abs_pose_min_num_inliers`). Unset points stay out of the cache key. `tiepoints.test.ts` checks the whole path against a real COLMAP when one is installed.
 | Train | **The splat updates in the viewer during training**, with charts for loss, PSNR and Gaussian count. |
 | AI Repair | Before/after toggle per repaired view. |
 

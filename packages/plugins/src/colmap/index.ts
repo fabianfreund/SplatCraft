@@ -1,12 +1,13 @@
 import { readdir, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { definePlugin, defineStage, StageError, type StageContext, type ToolSpec } from '@splatcraft/core';
-import sharp from 'sharp';
 import { z } from 'zod';
 import { ensureDir, execText, exists, freshDir, linkOrCopy, listImages, pool } from '../util/fs.js';
 import { throttledProgress } from '../util/preview.js';
 import { emitModelPreview, snapshotFrequency, watchSnapshots } from './live.js';
 import { colmapLineProgress, parseModelAnalyzer, type ModelStats } from './model.js';
+import { cameraCounts, detectCameras, groupCameras, type CameraGroup } from './cameras.js';
+import { injectTiePoints, normalizeTracks, tieTrackSchema, trackPairs } from './tiepoints.js';
 
 const manualLinux = { type: 'manual' as const, instructions: 'Install COLMAP 4.x from your package manager or build it from source.', url: 'https://colmap.github.io/install.html' };
 
@@ -39,9 +40,13 @@ const CAMERA_MODELS = ['SIMPLE_PINHOLE', 'PINHOLE', 'SIMPLE_RADIAL', 'RADIAL', '
 
 export const colmapParams = z.object({
   cameraModel: z.enum(CAMERA_MODELS).default('OPENCV').describe('Camera model to estimate. OPENCV models lens distortion; images are undistorted afterwards when "undistort" is on.'),
-  singleCamera: z.boolean().default(true).describe('All frames come from the same camera/lens (shares intrinsics; more robust).'),
+  singleCamera: z.boolean().default(true).describe('Share one camera (lens) per detected camera: same EXIF body + lens + focal length, or one video. Photos without lens data always get their own. Off = one camera per image.'),
   maxImageSize: z.number().int().min(320).max(8192).default(1600).describe('Longest side used for feature extraction.'),
   maxFeatures: z.number().int().min(512).max(65536).default(8192).describe('Maximum SIFT features per image.'),
+  tiePoints: z
+    .array(tieTrackSchema)
+    .optional() // no default: unset stays out of the cache key, so older results stay valid
+    .describe('Feature points the user clicked: each track is the same spot in several frames. Added as extra matches; frames sharing a track are matched and re-verified with them.'),
   matcher: z.enum(['auto', 'exhaustive', 'sequential']).default('auto').describe('Feature matching strategy. auto = exhaustive below 150 frames, sequential (video order, with loop detection off) otherwise.'),
   sequentialOverlap: z.number().int().min(2).max(100).default(15).describe('Sequential matcher: how many neighbouring frames to match against.'),
   mapper: z.enum(['global', 'incremental']).default('global').describe('Reconstruction method. global (GLOMAP-style) is much faster; incremental can be more robust for hard captures.'),
@@ -81,7 +86,7 @@ export const colmapStage = defineStage<ColmapParams>({
     if (files.length < 3) {
       throw new StageError(`Only ${files.length} usable frame${files.length === 1 ? '' : 's'}: alignment needs at least 3`, {
         code: 'colmap.too-few-frames',
-        hint: 'Add more photos or a longer video, or re-include frames that the review step rejected.',
+        hint: 'Add more photos or a longer video, or re-include frames that the Prepare step rejected.',
       });
     }
     const p = ctx.params;
@@ -106,23 +111,29 @@ export const colmapStage = defineStage<ColmapParams>({
       });
     };
 
-    // 1. Features. "Single camera" only makes sense per physical camera: frames with
-    // different sizes (e.g. a phone photo + video frames) each get their own camera,
-    // otherwise COLMAP silently skips every image that doesn't match the first one.
-    const groups = p.singleCamera ? await groupBySize(files) : [{ size: 'mixed', files }];
-    if (groups.length > 1) {
-      ctx.notice({
-        level: 'info',
-        code: 'colmap.multiple-cameras',
-        title: `${groups.length} cameras detected`,
-        detail: groups.map((g) => `${g.size} (${g.files.length} images)`).join(' · '),
-        hint: 'Images with different sizes are calibrated separately.',
-      });
-    }
+    // 0. Cameras: which frames share a lens (EXIF body + lens + focal, or one video), and
+    // which have a focal prior. Photos without lens data each get their own camera.
+    progress(0, 'Detecting cameras', true);
+    const frameCams = await detectCameras(files);
+    const groups: CameraGroup[] = p.singleCamera ? groupCameras(frameCams) : [{ shared: false, label: 'Per image', files, focal: frameCams.some((c) => c.focal) }];
+    const counts = cameraCounts(groups);
+    // An unordered photo collection (no video, small enough for exhaustive matching) gets the
+    // thorough settings: wide-baseline features, guided matching, forgiving incremental mapping.
+    const collection = !frameCams.some((c) => c.kind === 'video') && files.length <= COLLECTION_MAX;
+    ctx.notice({
+      level: 'info',
+      code: 'colmap.cameras',
+      title: `${counts.cameras} camera${counts.cameras === 1 ? '' : 's'} detected · ${counts.withFocal ? `${counts.withFocal} with lens data` : 'no lens data'}`,
+      detail: groups.map((g) => `${g.label}: ${g.files.length} ${g.files.length === 1 ? 'image' : 'images'}${g.shared ? '' : ' (one camera each)'}`).join(' · '),
+      ...(counts.withFocal < counts.cameras
+        ? { hint: 'Focal lengths without lens data (EXIF) are estimated during alignment. Original camera files align better than downloaded or edited copies.' }
+        : {}),
+    });
+    const robustExtract = collection ? await supportedOptions(ctx.tools.colmap, 'feature_extractor', ROBUST_FEATURES) : [];
     let skipped = 0;
     for (const [i, group] of groups.entries()) {
       const listArgs: string[] = [];
-      if (groups.length > 1) {
+      if (groups.length > 1 || !group.shared) {
         const list = path.join(ctx.workDir, `images_cam${i + 1}.txt`);
         await writeFile(list, group.files.map((f) => path.basename(f)).join('\n') + '\n');
         listArgs.push('--image_list_path', list);
@@ -136,11 +147,12 @@ export const colmapStage = defineStage<ColmapParams>({
         '--image_path', imagesIn,
         ...listArgs,
         '--ImageReader.camera_model', p.cameraModel,
-        '--ImageReader.single_camera', p.singleCamera ? '1' : '0',
+        '--ImageReader.single_camera', group.shared ? '1' : '0',
         '--FeatureExtraction.use_gpu', g,
         '--FeatureExtraction.num_threads', String(p.numThreads),
         '--FeatureExtraction.max_image_size', String(p.maxImageSize),
         '--SiftExtraction.max_num_features', String(p.maxFeatures),
+        ...robustExtract,
         ...common,
       ], {
         onLine: (line) => {
@@ -159,26 +171,82 @@ export const colmapStage = defineStage<ColmapParams>({
       });
     }
 
-    // 2. Matching
+    // Feature points the user placed (tracks of the same spot in several frames).
+    const tracks = normalizeTracks(p.tiePoints ?? [], files.map((f) => path.basename(f)));
+    const pairs = trackPairs(tracks);
+
+    // 2b. Matching
     const matcher = p.matcher === 'auto' ? (files.length < 150 ? 'exhaustive' : 'sequential') : p.matcher;
     const matchArgs =
       matcher === 'exhaustive'
         ? ['exhaustive_matcher']
         : ['sequential_matcher', '--SequentialMatching.overlap', String(p.sequentialOverlap), '--SequentialMatching.quadratic_overlap', '1'];
+    const guided = collection ? await supportedOptions(ctx.tools.colmap, matchArgs[0]!, { 'FeatureMatching.guided_matching': '1' }) : [];
     await phase('match', 0.3, 0.55, `Matching (${matcher})`, [
       ...matchArgs,
+      ...guided,
       '--database_path', db,
       '--FeatureMatching.use_gpu', g,
       '--FeatureMatching.num_threads', String(p.numThreads),
     ]);
 
+    // 2b'. Sequential matching only tries neighbours: match frames that share a feature point too
+    // (normal settings; exhaustive matching has tried every pair already).
+    if (pairs.length && matcher !== 'exhaustive') {
+      const list = path.join(ctx.workDir, 'tie_pairs.txt');
+      await writeFile(list, pairs.map(([a, b]) => `${a} ${b}`).join('\n') + '\n');
+      progress(0.5, `Matching ${pairs.length} frame pair${pairs.length === 1 ? '' : 's'} with feature points`, true);
+      await ctx.spawn('colmap', [
+        'matches_importer',
+        '--database_path', db,
+        '--match_list_path', list,
+        '--match_type', 'pairs',
+        '--FeatureMatching.use_gpu', g,
+        '--FeatureMatching.num_threads', String(p.numThreads),
+        ...guided,
+        ...common,
+      ]);
+    }
+
+    // 2c. Feature points: append them as keypoints and re-verify the tracked pairs with them.
+    if (tracks.length) {
+      const reverify = await supportedOptions(ctx.tools.colmap, 'matches_importer', REVERIFY);
+      progress(0.55, 'Adding feature points', true);
+      const { DatabaseSync } = await import('node:sqlite').catch(() => {
+        throw new StageError('Feature points need a newer Node.js', { code: 'colmap.no-sqlite', hint: 'Use Node.js 22.13 or newer for the CLI, or the desktop app.' });
+      });
+      const sql = new DatabaseSync(db);
+      let injected: ReturnType<typeof injectTiePoints>;
+      try {
+        injected = injectTiePoints(sql, tracks);
+      } finally {
+        sql.close();
+      }
+      if (injected.rawMatches) {
+        const raw = path.join(ctx.workDir, 'tie_matches.txt');
+        await writeFile(raw, injected.rawMatches);
+        await ctx.spawn('colmap', [
+          'matches_importer',
+          '--database_path', db,
+          '--match_list_path', raw,
+          '--match_type', 'raw',
+          '--FeatureMatching.use_gpu', g,
+          '--FeatureMatching.num_threads', String(p.numThreads),
+          ...reverify,
+          ...common,
+        ]);
+        ctx.log(`Added ${injected.points} feature points in ${tracks.length} track${tracks.length === 1 ? '' : 's'} (${injected.pairs} frame pairs re-verified).`);
+      }
+    }
+
     // 3. Mapping. If the chosen mapper finds nothing, try the other one before giving up
     // (global SfM needs good focal priors, which video frames without EXIF lack).
     const rawDir = await freshDir(path.join(ctx.workDir, 'sparse_raw'));
+    const relaxed = collection ? await supportedOptions(ctx.tools.colmap, 'mapper', RELAXED_MAPPER) : [];
     const mapperArgs = (m: 'global' | 'incremental') =>
       m === 'global'
         ? ['global_mapper', '--GlobalMapper.gp_use_gpu', g, '--GlobalMapper.ba_ceres_use_gpu', g, '--GlobalMapper.num_threads', String(p.numThreads)]
-        : ['mapper', '--Mapper.ba_use_gpu', g, '--Mapper.num_threads', String(p.numThreads)];
+        : ['mapper', '--Mapper.ba_use_gpu', g, '--Mapper.num_threads', String(p.numThreads), ...relaxed];
     const diag = { emptyGraph: false, noInitialPair: false, noFocalPriors: false };
     // Incremental mapping writes partial models as it grows: preview them live.
     // (The global mapper solves everything at once; it previews when it finishes.)
@@ -207,14 +275,20 @@ export const colmapStage = defineStage<ColmapParams>({
         .finally(() => live?.stop());
       return pickBest(ctx, rawDir);
     };
-    let usedMapper = p.mapper;
-    let { best, models } = await runMapper(p.mapper, 0.55, 0.85);
+    // Global SfM needs focal priors for most cameras; without them it fails, so start incremental.
+    let first: 'global' | 'incremental' = p.mapper;
+    if (first === 'global' && counts.withFocal < counts.cameras / 2) {
+      first = 'incremental';
+      ctx.log(`Only ${counts.withFocal} of ${counts.cameras} cameras have a focal prior: using the incremental mapper.`);
+    }
+    let usedMapper = first;
+    let { best, models } = await runMapper(first, 0.55, 0.85);
     if ((best?.stats.registeredImages ?? 0) < 3) {
-      const other = p.mapper === 'global' ? 'incremental' : 'global';
+      const other = first === 'global' ? 'incremental' : 'global';
       ctx.notice({
         level: 'info',
         code: 'colmap.mapper-fallback',
-        title: `${p.mapper === 'global' ? 'Global' : 'Incremental'} mapper found no model; retrying with ${other}`,
+        title: `${first === 'global' ? 'Global' : 'Incremental'} mapper found no model; retrying with ${other}`,
       });
       usedMapper = other;
       ({ best, models } = await runMapper(other, 0.6, 0.85));
@@ -236,7 +310,7 @@ export const colmapStage = defineStage<ColmapParams>({
         code: 'colmap.partial',
         title: `Only ${reg} of ${files.length} cameras aligned`,
         detail: models.length > 1 ? `The scene split into ${models.length} disconnected parts; the largest is used.` : undefined,
-        hint: 'Unaligned images are ignored for training. More overlap between shots usually fixes this.',
+        hint: 'Unaligned images are ignored for training. Mark the same spots in an unaligned frame and in aligned ones (Prepare step → Feature points), or shoot with more overlap.',
       });
     }
 
@@ -295,12 +369,46 @@ export const colmapStage = defineStage<ColmapParams>({
         ...(s.meanTrackLength !== undefined ? { meanTrackLength: Number(s.meanTrackLength.toFixed(2)) } : {}),
         matcher,
         mapper: usedMapper,
-        cameras: groups.length,
+        cameras: counts.cameras,
+        lensData: counts.withFocal,
         models: models.length,
       },
     };
   },
 });
+
+/** Photo collections up to this size get the thorough settings (they're matched exhaustively anyway). */
+const COLLECTION_MAX = 150;
+
+/** Wide-baseline features for unordered photos (CPU SIFT; slower, but far more matches across viewpoints). */
+const ROBUST_FEATURES: Record<string, string> = {
+  'SiftExtraction.estimate_affine_shape': '1',
+  'SiftExtraction.domain_size_pooling': '1',
+};
+
+/** Forgiving incremental mapping for photo collections: register images with fewer, weaker matches. */
+const RELAXED_MAPPER: Record<string, string> = {
+  'Mapper.abs_pose_min_num_inliers': '15',
+  'Mapper.abs_pose_min_inlier_ratio': '0.15',
+  'Mapper.init_min_num_inliers': '50',
+  'Mapper.min_num_matches': '10',
+  'Mapper.init_min_tri_angle': '4',
+};
+
+/**
+ * Re-verifying pairs that contain clicked points: accept a pair with fewer inliers (the clicked
+ * matches are trusted). Matching itself keeps COLMAP's defaults: looser ratio tests flood whole
+ * photo sets with outliers once a track spans many frames.
+ */
+const REVERIFY: Record<string, string> = { 'TwoViewGeometry.min_num_inliers': '8' };
+
+const helpCache = new Map<string, Promise<string>>();
+async function supportedOptions(exe: string, command: string, opts: Record<string, string>): Promise<string[]> {
+  const key = `${exe}\n${command}`;
+  if (!helpCache.has(key)) helpCache.set(key, execText(exe, [command, '-h'], 10000).catch((e) => String((e as any)?.output ?? (e as any)?.stdout ?? '')));
+  const help = await helpCache.get(key)!;
+  return Object.entries(opts).flatMap(([k, v]) => (help.includes(`--${k} `) ? [`--${k}`, v] : []));
+}
 
 async function pickBest(ctx: StageContext<ColmapParams>, rawDir: string) {
   const models = (await readdir(rawDir, { withFileTypes: true }).catch(() => []))
@@ -312,17 +420,6 @@ async function pickBest(ctx: StageContext<ColmapParams>, rawDir: string) {
     if (!best || (stats.registeredImages ?? 0) > (best.stats.registeredImages ?? 0)) best = { dir, stats };
   }
   return { best, models };
-}
-
-/** Group image files by pixel dimensions (≈ physical camera / lens / orientation). */
-async function groupBySize(files: string[]) {
-  const map = new Map<string, string[]>();
-  for (const f of files) {
-    const m = await sharp(f).metadata().catch(() => undefined);
-    const key = m?.width && m?.height ? `${m.width}×${m.height}` : 'unknown';
-    map.set(key, [...(map.get(key) ?? []), f]);
-  }
-  return [...map.entries()].sort((a, b) => b[1].length - a[1].length).map(([size, files]) => ({ size, files }));
 }
 
 async function analyze(ctx: StageContext<ColmapParams>, dir: string): Promise<ModelStats> {

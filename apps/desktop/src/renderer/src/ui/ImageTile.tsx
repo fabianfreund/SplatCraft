@@ -15,12 +15,14 @@ export interface ImageTileProps {
   badge?: ReactNode;
   /** Small corner marker, e.g. for manual overrides. */
   marked?: boolean;
+  /** Picked (e.g. first frame of a link being made): accent ring. */
+  selected?: boolean;
   tooltip?: ReactNode;
   onClick?: () => void;
 }
 
 /** Fixed 3:2 thumbnail tile with optional quality bar and badge. */
-export function ImageTile({ src, placeholder, corner, dimmed, score, badge, marked, tooltip, onClick }: ImageTileProps) {
+export function ImageTile({ src, placeholder, corner, dimmed, score, badge, marked, selected, tooltip, onClick }: ImageTileProps) {
   const [failed, setFailed] = useState(false);
   const tone = score === undefined ? '' : score >= 0.5 ? 'bg-success' : score >= 0.3 ? 'bg-warning' : 'bg-danger';
   return (
@@ -28,7 +30,11 @@ export function ImageTile({ src, placeholder, corner, dimmed, score, badge, mark
       <button
         type="button"
         onClick={onClick}
-        className="press group relative block aspect-[3/2] w-full overflow-hidden rounded-md bg-surface-2 outline-none ring-1 ring-line hover:ring-line-strong focus-visible:ring-line-focus"
+        aria-pressed={selected}
+        className={cn(
+          'press group relative block aspect-[3/2] w-full overflow-hidden rounded-md bg-surface-2 outline-none focus-visible:ring-line-focus',
+          selected ? 'ring-2 ring-accent' : 'ring-1 ring-line hover:ring-line-strong',
+        )}
       >
         {src && !failed ? (
         <img

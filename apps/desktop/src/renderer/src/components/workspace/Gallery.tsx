@@ -1,16 +1,17 @@
 import type { ProjectMeta } from '@shared/api';
-import { Film, FolderPlus, Image as ImageIcon, Play, Upload } from 'lucide-react';
-import { useMemo, useState, type MouseEvent } from 'react';
+import { Crosshair, Film, FolderPlus, Image as ImageIcon, Play, Upload } from 'lucide-react';
+import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { formatBytes } from '../../lib/format';
 import { useApp } from '../../store/app';
-import { reviewStepKey, stepStatus, usePipeline } from '../../store/pipeline';
+import { currentTracks, pointCounts, tieStepKey, useTiePoints } from '../../store/tiepoints';
+import { effectiveSelectedKey, reviewStepKey, stepStatus, usePipeline } from '../../store/pipeline';
 import { Badge, Button, ChipGroup, EmptyState, ImageTile, SegmentedControl, Spinner } from '../../ui';
 import { MediaLightbox, type LightboxItem } from './MediaLightbox';
 import { SourcesButton } from './SourcesButton';
 import { addSources } from './useDrop';
 import { useFrames, type FrameItem } from './useFrames';
 
-type Filter = 'all' | 'kept' | 'rejected';
+type Filter = 'all' | 'kept' | 'rejected' | 'unaligned';
 
 const GRID = 'grid gap-2.5 [grid-template-columns:repeat(auto-fill,minmax(176px,1fr))]';
 
@@ -52,13 +53,20 @@ export function Gallery() {
   const hasFrames = content === 'frames' && frames.items.length > 0;
   const scored = frames.canToggle;
 
+  const fp = useFeaturePoints(hasFrames);
+  const unaligned = useMemo(() => (fp.aligned ? frames.items.filter((f) => f.kept && !fp.aligned!.has(f.name)).length : 0), [frames.items, fp.aligned]);
+  const isUnaligned = (f: FrameItem) => !!fp.aligned && f.kept && !fp.aligned.has(f.name);
   const shown = useMemo(
-    () => (filter === 'all' ? frames.items : frames.items.filter((f) => (filter === 'kept' ? f.kept : !f.kept))),
-    [frames.items, filter],
+    () =>
+      filter === 'all'
+        ? frames.items
+        : frames.items.filter((f) => (filter === 'kept' ? f.kept : filter === 'rejected' ? !f.kept : !!fp.aligned && f.kept && !fp.aligned.has(f.name))),
+    [frames.items, filter, fp.aligned],
   );
 
   const [open, setOpen] = useState<Open | null>(null);
   const byPath = useMemo(() => new Map(frames.items.map((f) => [f.path, f])), [frames.items]);
+  const byName = useMemo(() => new Map(frames.items.map((f) => [f.name, f.path])), [frames.items]);
   const abs = (p: string) => absPath(project.dir, p);
   const lightbox = useMemo<LightboxItem[]>(() => {
     if (!open) return [];
@@ -114,6 +122,7 @@ export function Gallery() {
                 { value: 'all', label: 'All', count: frames.items.length },
                 { value: 'kept', label: 'Kept', count: scored ? frames.kept : undefined, tone: 'success' },
                 { value: 'rejected', label: 'Rejected', count: scored ? frames.rejected : undefined, tone: 'danger' },
+                ...(fp.aligned ? [{ value: 'unaligned' as const, label: 'Not aligned', count: unaligned, tone: 'warning' as const }] : []),
               ]}
             />
           )}
@@ -142,12 +151,25 @@ export function Gallery() {
                   dimmed={!f.kept}
                   score={f.score}
                   marked={f.overridden}
-                  badge={!f.kept && f.reason ? <Badge tone={f.reason === 'excluded' ? 'neutral' : 'danger'}>{f.reason}</Badge> : undefined}
+                  badge={
+                    !f.kept && f.reason ? (
+                      <Badge tone={f.reason === 'excluded' ? 'neutral' : 'danger'}>{f.reason}</Badge>
+                    ) : isUnaligned(f) ? (
+                      <Badge tone="warning">not aligned</Badge>
+                    ) : undefined
+                  }
+                  corner={fp.counts.get(f.name) ? <Badge tone="accent" icon={Crosshair}>{fp.counts.get(f.name)}</Badge> : undefined}
                   tooltip={
                     <TileTip
                       name={f.name}
                       score={f.score}
-                      hint={frames.canToggle ? `Click to open · Right-click to ${f.kept ? 'exclude' : 'include'}` : 'Click to open'}
+                      hint={
+                        fp.active
+                          ? 'Click to open and place feature points'
+                          : frames.canToggle
+                            ? `Click to open · Right-click to ${f.kept ? 'exclude' : 'include'}`
+                            : 'Click to open'
+                      }
                     />
                   }
                   onClick={() => setOpen({ content: 'frames', keys: shown.map((x) => x.path), index: i })}
@@ -166,10 +188,56 @@ export function Gallery() {
           onIndex={(index) => setOpen({ ...open, index })}
           onClose={() => setOpen(null)}
           onToggle={open.content === 'frames' && frames.canToggle ? toggleFromLightbox : undefined}
+          points={
+            open.content === 'frames' && fp.canEdit
+              ? { active: fp.active, onToggle: () => useTiePoints.getState().setActive(!fp.active), frameUrl: (name) => (byName.get(name) ? window.splatcraft.app.fileUrl(byName.get(name)!) : undefined) }
+              : undefined
+          }
         />
       )}
     </div>
   );
+}
+
+/**
+ * Feature points and alignment state for the grid. Alignment is only known once the
+ * feature-point step has a result (its camera preview lists the registered frames).
+ * Editing works on that step and on the frame-review step: P toggles the mode.
+ */
+function useFeaturePoints(hasFrames: boolean) {
+  const spec = usePipeline((s) => s.spec);
+  const stages = usePipeline((s) => s.stages);
+  const steps = usePipeline((s) => s.steps);
+  const plan = usePipeline((s) => s.plan);
+  const running = usePipeline((s) => s.running);
+  const cameras = usePipeline((s) => s.previews.cameras);
+  const selected = usePipeline((s) => effectiveSelectedKey(s));
+  const active = useTiePoints((s) => s.active);
+  const key = tieStepKey(spec, stages);
+  const done = key ? ['done', 'cached'].includes(stepStatus({ steps, plan }, key, true).status) : false;
+  const aligned = useMemo(() => (key && done && cameras?.key === key ? new Set(cameras.cameras.map((c) => c.name.split(/[\\/]/).pop()!)) : undefined), [key, done, cameras]);
+  const counts = useMemo(() => pointCounts(currentTracks(spec, stages)), [spec, stages]);
+  const canEdit = !!key && (selected === key || selected === reviewStepKey(spec, stages)) && hasFrames && !running;
+
+  useEffect(() => {
+    if (!canEdit) {
+      if (useTiePoints.getState().active) useTiePoints.getState().setActive(false);
+      return;
+    }
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (e.metaKey || e.ctrlKey || e.altKey || (t && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName)))) return;
+      if (e.key.toLowerCase() !== 'p') return;
+      e.preventDefault();
+      const tp = useTiePoints.getState();
+      tp.setActive(!tp.active);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [canEdit]);
+  useEffect(() => () => useTiePoints.getState().setActive(false), []);
+
+  return { aligned, counts, canEdit, active: active && canEdit };
 }
 
 /** Reserved-height strip shown while reviewing frames: counts + Run all. */

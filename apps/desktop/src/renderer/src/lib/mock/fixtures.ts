@@ -68,6 +68,11 @@ export const STAGES: StageDescriptor[] = [
       mapper: en(['global', 'incremental'], { default: 'global', description: 'Global (GLOMAP) is much faster; incremental can be more robust.' }),
       maxFeatures: int({ minimum: 1024, maximum: 32768, default: 8192, description: 'SIFT features per image.' }),
       useGpu: bool({ default: true, description: 'Use the GPU for feature extraction and matching.' }),
+      tiePoints: {
+        type: 'array',
+        items: { type: 'object', properties: { id: { type: 'integer' }, points: { type: 'array', items: { type: 'object', properties: { image: { type: 'string' }, x: { type: 'number' }, y: { type: 'number' } } } } } },
+        description: 'Feature points the user clicked (the same spot in several frames).',
+      },
     }),
     presets: { fast: { maxFeatures: 4096 }, quality: { matcher: 'exhaustive', maxFeatures: 16384 } },
   },

@@ -5,11 +5,19 @@
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
-  "scripts": { "typecheck": "tsc -p .", "test": "vitest run --passWithNoTests" },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "vitest run --passWithNoTests"
+  },
   "dependencies": {
     "@splatcraft/core": "workspace:*",
+    "exif-reader": "2.0.3",
     "sharp": "^0.35.5",
     "zod": "^4.6.7"
   },
-  "devDependencies": { "@types/node": "^22.10.0", "typescript": "^5.9.0", "vitest": "^3.2.0" }
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  }
 }

@@ -52,7 +52,7 @@ export const framesStage = defineStage<FramesParams>({
   // Unchanged output without a trim, which enters the cache key on their own.
   version: '1',
   title: 'Frames',
-  description: 'Normalizes photos (EXIF rotation, resize, JPEG) and extracts sharp frames from videos.',
+  description: 'Normalizes photos (EXIF rotation, resize, JPEG; camera EXIF kept) and extracts sharp frames from videos.',
   category: 'prepare',
   paramsSchema: framesParams as z.ZodType<FramesParams>,
   presets: {
@@ -135,6 +135,9 @@ async function normalizeImage(ctx: StageContext<FramesParams>, src: string, out:
     sharp(input, { failOn: 'none' })
       .rotate()
       .resize({ width: max, height: max, fit: 'inside', withoutEnlargement: true })
+      // Keep EXIF (camera, lens, focal length): alignment uses it to group cameras and as a focal prior.
+      // rotate() already applied the orientation, and sharp resets the tag to normal.
+      .keepExif()
       .jpeg({ quality: ctx.params.jpegQuality, mozjpeg: false })
       .toFile(out);
   try {
