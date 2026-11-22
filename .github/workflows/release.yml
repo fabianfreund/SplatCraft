@@ -58,3 +58,5 @@ jobs:
             apps/desktop/dist/*.exe.blockmap
             apps/desktop/dist/*.AppImage
             apps/desktop/dist/*.deb
+            apps/desktop/dist/latest.yml
+            apps/desktop/dist/latest-linux.yml

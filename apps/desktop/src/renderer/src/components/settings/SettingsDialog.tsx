@@ -1,8 +1,10 @@
-import { ClipboardCopy, ClipboardPaste, Monitor, Moon, Palette, RotateCcw, Settings2, SlidersHorizontal, Sparkle, Sun, Wrench } from 'lucide-react';
+import { ClipboardCopy, ClipboardPaste, Monitor, Moon, Palette, RefreshCw, RotateCcw, RotateCw, Settings2, SlidersHorizontal, Sparkle, Sun, Wrench } from 'lucide-react';
+import type { UpdateState } from '@shared/api';
 import { useApp, type SettingsSection, type UiMode } from '../../store/app';
 import { pushMessage } from '../../store/messages';
+import { useUpdates } from '../../store/updates';
 import { ACCENTS, usePrefs, type Density, type DockMeters, type TextScale, type ThemePref } from '../../store/prefs';
-import { Button, Dialog, Divider, Field, Kbd, Label, NavList, SegmentedControl, Switch, SwatchPicker } from '../../ui';
+import { Button, Dialog, Divider, Field, Kbd, Label, NavList, SegmentedControl, Switch, SwatchPicker, Text } from '../../ui';
 import { ToolsSettings } from './ToolsSettings';
 
 const SECTIONS = [
@@ -73,6 +75,7 @@ function GeneralSettings() {
           />
         </Field>
       </Group>
+      <UpdateSettings />
       <Group title="Shortcuts">
         <ShortcutRow label="Focus mode" keys={['\\']} />
         <ShortcutRow label="Settings" keys={['⌘', ',']} />
@@ -80,6 +83,59 @@ function GeneralSettings() {
         <ShortcutRow label="Open project" keys={['⌘', 'O']} />
       </Group>
     </div>
+  );
+}
+
+const UPDATE_SLOT = 132;
+
+function updateLabel(u: UpdateState | undefined): { text: string; tone: 'muted' | 'accent' | 'danger' } {
+  if (!u) return { text: '', tone: 'muted' };
+  switch (u.status) {
+    case 'unsupported':
+      return { text: `${u.version} · updates off in this build`, tone: 'muted' };
+    case 'checking':
+      return { text: 'Checking…', tone: 'muted' };
+    case 'current':
+      return { text: `${u.version} · up to date`, tone: 'muted' };
+    case 'downloading':
+      return { text: `Downloading ${u.available ?? ''} · ${Math.round((u.fraction ?? 0) * 100)}%`, tone: 'accent' };
+    case 'ready':
+      return { text: `${u.available} ready to install`, tone: 'accent' };
+    case 'error':
+      return { text: u.error ?? 'Update check failed', tone: 'danger' };
+    default:
+      return { text: u.version, tone: 'muted' };
+  }
+}
+
+function UpdateSettings() {
+  const u = useUpdates((s) => s.state);
+  const check = useUpdates((s) => s.check);
+  const setAuto = useUpdates((s) => s.setAuto);
+  const install = useUpdates((s) => s.install);
+  const off = !u || u.status === 'unsupported';
+  const busy = u?.status === 'checking' || u?.status === 'downloading';
+  const label = updateLabel(u);
+  return (
+    <Group title="Updates">
+      <Field label="Version" help="New releases come from GitHub, download in the background and install when you quit or restart.">
+        <Text size="xs" tone={label.tone} num truncate className="min-w-0 flex-1" title={label.text}>
+          {label.text}
+        </Text>
+        {u?.status === 'ready' ? (
+          <Button size="sm" variant="primary" icon={RotateCw} minWidth={UPDATE_SLOT} onClick={() => void install()}>
+            Restart to update
+          </Button>
+        ) : (
+          <Button size="sm" variant="subtle" icon={RefreshCw} minWidth={UPDATE_SLOT} disabled={off} loading={busy} onClick={() => void check()}>
+            Check now
+          </Button>
+        )}
+      </Field>
+      <Field label="Check automatically" help="On launch and every few hours.">
+        <Switch size="sm" label="Check automatically" checked={u?.auto ?? true} disabled={off} onChange={(auto) => void setAuto(auto)} />
+      </Field>
+    </Group>
   );
 }
 

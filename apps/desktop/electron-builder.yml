@@ -33,6 +33,9 @@ mac:
   target:
     - target: dmg
       arch: [arm64, x64]
+    # The auto-updater (Squirrel.Mac) installs from the zip, not the dmg.
+    - target: zip
+      arch: [arm64, x64]
   hardenedRuntime: true
   darkModeSupport: true
   entitlements: build/entitlements.mac.plist
@@ -68,4 +71,10 @@ linux:
     - deb
   artifactName: ${productName}-${version}-${arch}.${ext}
 npmRebuild: false
-publish: null
+# Auto-update (electron-updater) reads latest*.yml from the newest GitHub release.
+# Builds still run with --publish never; the release scripts upload the files.
+publish:
+  provider: github
+  owner: fabianfreund
+  repo: SplatCraft
+  releaseType: release

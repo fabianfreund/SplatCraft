@@ -119,12 +119,13 @@ export const STEP_ACTIONS: Record<string, StepTools> = {
       const steps = sk ? num(c.param(sk)) : undefined;
       const splats = pk ? num(c.param(pk)) : undefined;
       const idle = c.running || !c.step.enabled || !c.done;
+      // Changing steps or splats gives the step a new cache key: training starts over at step 0.
       const out: Action[] = [rerun(c, 'Retrain from scratch')];
       if (sk && steps)
         out.push({
           id: 'more',
           icon: FastForward,
-          label: `Train longer · ${short(steps)} → ${short(Math.round(steps * 1.5))} steps`,
+          label: `Retrain longer · ${short(steps)} → ${short(Math.round(steps * 1.5))} steps (from scratch)`,
           disabled: idle,
           onClick: () => {
             c.setParams({ [sk]: Math.round(steps * 1.5) });
@@ -135,7 +136,7 @@ export const STEP_ACTIONS: Record<string, StepTools> = {
         out.push({
           id: 'detail',
           icon: Gem,
-          label: `More detail · ${short(splats)} → ${short(Math.round(splats * 1.5))} splats`,
+          label: `Retrain with more detail · ${short(splats)} → ${short(Math.round(splats * 1.5))} splats (from scratch)`,
           disabled: idle,
           onClick: () => {
             c.setParams({ [pk]: Math.round(splats * 1.5), [sk]: Math.round(steps * 1.25) });

@@ -234,6 +234,11 @@ export interface ProjectMeta {
   steps?: Record<string, StepRecord>;
   /** The most recent run. */
   lastRun?: RunRecord;
+  /**
+   * Per step key, how often it was force re-run. Part of the step's cache key,
+   * so a forced re-run also makes every later step out of date (written by the engine).
+   */
+  generations?: Record<string, number>;
 }
 
 /* ------------------------------------------------------------------ */

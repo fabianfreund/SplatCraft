@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { basename } from '../../lib/format';
-import { qualityStepKey, usePipeline, type FrameScore } from '../../store/pipeline';
+import { reviewStepKey, usePipeline, type FrameScore } from '../../store/pipeline';
 
 export interface FrameItem {
   path: string;
@@ -16,8 +16,9 @@ export function useFrames() {
   const images = usePipeline((s) => s.previews.images);
   const scores = usePipeline((s) => s.previews.frameScores);
   const spec = usePipeline((s) => s.spec);
+  const stages = usePipeline((s) => s.stages);
   const updateStep = usePipeline((s) => s.updateStep);
-  const qKey = qualityStepKey(spec);
+  const qKey = reviewStepKey(spec, stages);
   const qStep = spec?.steps.find((s) => s.key === qKey);
   const excluded = useMemo(() => new Set((qStep?.params.excluded as string[] | undefined) ?? []), [qStep]);
   const included = useMemo(() => new Set((qStep?.params.included as string[] | undefined) ?? []), [qStep]);

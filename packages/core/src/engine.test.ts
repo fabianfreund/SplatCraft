@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -112,6 +112,34 @@ describe('PipelineEngine', () => {
     calls.length = 0;
     await engine.run(project, { force: ['b'] });
     expect(calls).toEqual(['b']);
+  });
+
+  it('a forced re-run makes every later step out of date, also for later runs', async () => {
+    const { engine, project } = await setup();
+    await engine.run(project);
+
+    // Re-run only `a` (e.g. "Re-align cameras"): `b` must not stay cached on the old result.
+    calls.length = 0;
+    await engine.run(project, { untilKey: 'a', force: ['a'] });
+    expect(calls).toEqual(['a']);
+    expect((await engine.plan(project)).map((s) => s.cached)).toEqual([true, false]);
+
+    calls.length = 0;
+    await engine.run(project);
+    expect(calls).toEqual(['b']);
+    expect((await Project.open(project.dir)).meta.generations).toEqual({ a: 1 });
+  });
+
+  it('plan() and run() agree when cached outputs were deleted', async () => {
+    const { engine, project } = await setup();
+    await engine.run(project);
+    const b = (await engine.plan(project))[1]!;
+    await rm(path.join(project.paths.cache, 'test.b', b.hash, 'b.txt'));
+    expect((await engine.plan(project)).map((s) => s.cached)).toEqual([true, false]);
+
+    calls.length = 0;
+    await engine.run(project);
+    expect(calls).toEqual(['b']); // starts over, no resume from a "complete" dir
   });
 
   it('cancels and resumes a resumable stage in the same work dir', async () => {

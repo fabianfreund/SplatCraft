@@ -6,6 +6,7 @@ import { Workspace } from './components/workspace/Workspace';
 import { useApp } from './store/app';
 import { useMonitor } from './store/monitor';
 import { descriptorFor, usePipeline } from './store/pipeline';
+import { useUpdates } from './store/updates';
 import { LoadingOverlay, Spinner, Toast } from './ui';
 
 /** Step the run last moved the selection to (see stage.start below). */
@@ -52,11 +53,12 @@ export function App() {
         if (a === 'project.new') app.setNewProjectOpen(true);
         else if (a === 'project.open') void app.openProject();
         else if (a === 'project.close') void app.closeProject();
-        else if (a === 'app.settings') app.setSettings('general');
+        else if (a === 'app.settings' || a === 'app.updates') app.setSettings('general');
       }),
       cs.app.onFullScreen((fs) => {
         document.documentElement.toggleAttribute('data-fullscreen', fs);
       }),
+      useUpdates.getState().init(),
     ];
     void cs.monitor.history().then((h) => useMonitor.getState().seed(h));
     void useApp.getState().boot().catch((e) => setError(String(e)));

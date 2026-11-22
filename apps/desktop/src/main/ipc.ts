@@ -25,7 +25,7 @@ export function broadcast(channel: string, payload: unknown) {
  * internal `monitor.subscribe` / `monitor.unsubscribe` used by the preload.
  */
 export function createHandlers(s: Services, hub: EngineEventHub): Record<string, Handler> {
-  const { registry, toolchain, engine, projects, monitor } = s;
+  const { registry, toolchain, engine, projects, monitor, updater } = s;
 
   const handlers: Record<string, Handler> = {
     /* app */
@@ -39,6 +39,12 @@ export function createHandlers(s: Services, hub: EngineEventHub): Record<string,
       if (typeof absPath !== 'string' || !path.isAbsolute(absPath)) throw new Error('Absolute path required');
       shell.showItemInFolder(absPath);
     },
+
+    /* updates */
+    'updates.state': () => updater.state,
+    'updates.check': () => updater.check(),
+    'updates.setAuto': (_c, auto: unknown) => updater.setAuto(auto === true),
+    'updates.install': () => updater.install(),
 
     /* projects */
     'projects.recent': () => projects.recent(),

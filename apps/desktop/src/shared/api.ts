@@ -103,8 +103,28 @@ export interface AppInfo {
   electron: string;
 }
 
+/** Auto-update from GitHub releases (packaged builds only). */
+export interface UpdateState {
+  /**
+   * unsupported: dev build or a package without an update channel (Linux .deb).
+   * current: the latest check found nothing newer. ready: downloaded, installs on quit or `install()`.
+   */
+  status: 'unsupported' | 'idle' | 'checking' | 'current' | 'downloading' | 'ready' | 'error';
+  /** Installed version. */
+  version: string;
+  /** Newer version being downloaded or ready to install. */
+  available?: string;
+  /** Download progress 0..1. */
+  fraction?: number;
+  /** ISO time of the last finished check. */
+  checkedAt?: string;
+  error?: string;
+  /** Check automatically on launch and every few hours. */
+  auto: boolean;
+}
+
 /** Commands sent by the native application menu. */
-export type MenuAction = 'project.new' | 'project.open' | 'project.close' | 'app.settings';
+export type MenuAction = 'project.new' | 'project.open' | 'project.close' | 'app.settings' | 'app.updates';
 
 export interface SplatCraftAPI {
   app: {
@@ -116,6 +136,15 @@ export interface SplatCraftAPI {
     onMenuAction(cb: (action: MenuAction) => void): () => void;
     /** Native window full screen changed (macOS hides the traffic lights). */
     onFullScreen(cb: (fullScreen: boolean) => void): () => void;
+  };
+  updates: {
+    state(): Promise<UpdateState>;
+    /** Looks for a newer release now (downloads it in the background). */
+    check(): Promise<UpdateState>;
+    setAuto(auto: boolean): Promise<UpdateState>;
+    /** Quits and installs the downloaded update. */
+    install(): Promise<void>;
+    onState(cb: (s: UpdateState) => void): () => void;
   };
   projects: {
     recent(): Promise<RecentProject[]>;
@@ -190,6 +219,7 @@ export const IPC = {
   projectChanged: 'sc:project-changed',
   menuAction: 'sc:menu-action',
   fullScreen: 'sc:full-screen',
+  updateState: 'sc:update-state',
 } as const;
 
 /** Custom protocol used by `app.fileUrl` to serve local files safely. */

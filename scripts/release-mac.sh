@@ -33,7 +33,8 @@ rm -rf apps/desktop/dist
 pnpm --filter @splatcraft/desktop exec electron-vite build
 pnpm --filter @splatcraft/desktop exec electron-builder --mac --publish never
 
-ARTIFACTS=(apps/desktop/dist/*.dmg apps/desktop/dist/*.dmg.blockmap)
+# zip + latest-mac.yml feed the auto-updater; the dmg is for first installs.
+ARTIFACTS=(apps/desktop/dist/*.dmg apps/desktop/dist/*.dmg.blockmap apps/desktop/dist/*-mac.zip apps/desktop/dist/*-mac.zip.blockmap apps/desktop/dist/latest-mac.yml)
 for app in apps/desktop/dist/mac*/SplatCraft.app; do
   codesign --verify --deep --strict "$app"
   spctl -a -t exec -vv "$app" 2>&1 || { [[ "${NOTARIZE:-1}" == "0" ]] || exit 1; }

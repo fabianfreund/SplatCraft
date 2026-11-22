@@ -25,6 +25,13 @@ const api: SplatCraftAPI = {
     onMenuAction: (cb) => on(IPC.menuAction, cb),
     onFullScreen: (cb) => on(IPC.fullScreen, cb),
   },
+  updates: {
+    state: () => invoke('updates.state'),
+    check: () => invoke('updates.check'),
+    setAuto: (auto) => invoke('updates.setAuto', auto),
+    install: () => invoke('updates.install'),
+    onState: (cb) => on(IPC.updateState, cb),
+  },
   projects: {
     recent: () => invoke('projects.recent'),
     removeRecent: (dir) => invoke('projects.removeRecent', dir),

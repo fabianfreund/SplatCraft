@@ -50,6 +50,7 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.on('before-quit', () => {
+    services?.updater.stop();
     services?.engine.cancel();
     services?.monitor.dispose();
   });
@@ -81,6 +82,7 @@ async function main() {
   s.monitor.on('sample', (sample) => {
     for (const id of s.monitor.subscribers()) webContents.fromId(id)?.send(IPC.monitorSample, sample);
   });
+  s.updater.on('state', (st) => broadcast(IPC.updateState, st));
   s.projects.on('changed', (p) => {
     broadcast(IPC.projectChanged, p);
     if (p) app.addRecentDocument(p.dir);
@@ -117,6 +119,7 @@ async function main() {
   if (initial) await openProject(initial);
 
   createWindow();
+  s.updater.start();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -137,6 +140,11 @@ function rebuildMenu() {
       void services?.projects.close();
     },
     hasProject: () => !!services?.projects.currentProject,
+    checkForUpdates: () => {
+      void services?.updater.check();
+      const win = BrowserWindow.getFocusedWindow() ?? mainWindow;
+      win?.webContents.send(IPC.menuAction, 'app.updates' satisfies MenuAction);
+    },
   });
 }
 

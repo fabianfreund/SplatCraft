@@ -7,6 +7,7 @@ export interface MenuHandlers {
   openProject(): void;
   closeProject(): void;
   hasProject(): boolean;
+  checkForUpdates(): void;
 }
 
 export function buildMenu(h: MenuHandlers) {
@@ -20,6 +21,7 @@ export function buildMenu(h: MenuHandlers) {
             label: app.name,
             submenu: [
               { role: 'about' },
+              { label: 'Check for Updates…', click: () => h.checkForUpdates() },
               { type: 'separator' },
               { label: 'Settings…', accelerator: 'Cmd+,', click: () => h.action('app.settings') },
               { type: 'separator' },
@@ -66,6 +68,7 @@ export function buildMenu(h: MenuHandlers) {
       role: 'help',
       submenu: [
         { label: 'Open Data Folder', click: () => void shell.openPath(app.getPath('userData')) },
+        ...(isMac ? [] : ([{ label: 'Check for Updates…', click: () => h.checkForUpdates() }] satisfies MenuItemConstructorOptions[])),
         ...(dev ? [] : ([{ type: 'separator' }, { role: 'toggleDevTools' }] satisfies MenuItemConstructorOptions[])),
       ],
     },

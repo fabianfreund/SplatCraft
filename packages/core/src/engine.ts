@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
-import { appendFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, appendFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { hashOf } from './hash.js';
 import type { Project } from './project.js';
@@ -56,7 +56,7 @@ interface CacheManifest {
 export interface RunOptions {
   /** Run only up to (and including) this step key. */
   untilKey?: string;
-  /** Ignore the cache for these step keys (and therefore everything downstream). */
+  /** Re-run these step keys from scratch; every later step goes out of date as well. */
   force?: string[];
 }
 
@@ -103,10 +103,10 @@ export class PipelineEngine extends EventEmitter {
       const def = this.registry.stage(step.stageId);
       const params = resolveParams(def, spec.preset, step.params);
       const inputs = pickInputs(def.inputs, available);
-      const hash = hashOf(def.id, def.version, params, mapValues(inputs, (a) => a.hash), await this.toolFingerprint(def));
+      const hash = await this.stepHash(project, step.key, def, params, inputs);
       const dir = path.join(project.paths.cache, sanitize(def.id), hash);
       const manifest = await readManifest(dir);
-      const cached = manifest?.status === 'complete';
+      const cached = await isCacheHit(manifest);
       const last = project.meta.steps?.[step.key];
       steps.push({
         key: step.key,
@@ -141,7 +141,6 @@ export class PipelineEngine extends EventEmitter {
     this.active = { runId, abort };
 
     let available: Partial<Record<ArtifactKind, ArtifactRef>> = { sources: this.sourcesArtifact(project) };
-    let forceDownstream = false;
     /** Persists a step's outcome in project.json (best effort: never fails the run). */
     const record = (key: string, rec: Omit<StepRecord, 'runId' | 'finishedAt'> & { finishedAt?: string }) =>
       project
@@ -165,24 +164,29 @@ export class PipelineEngine extends EventEmitter {
         const missing = def.inputs.filter((k) => !inputs[k]);
         if (missing.length) throw new Error(`${def.title}: missing inputs ${missing.join(', ')} — enable a stage that produces them`);
 
-        const hash = hashOf(def.id, def.version, params, mapValues(inputs, (a) => a.hash), await this.toolFingerprint(def));
+        if (opts.force?.includes(step.key)) {
+          // Drop the old result and give the step a new cache key: everything after it
+          // then gets new input hashes too, in this run and in later ones.
+          const prev = await this.stepHash(project, step.key, def, params, inputs);
+          await rm(path.join(project.paths.cache, sanitize(def.id), prev), { recursive: true, force: true });
+          await project.update((m) => {
+            m.generations = { ...m.generations, [step.key]: (m.generations?.[step.key] ?? 0) + 1 };
+          });
+        }
+        const hash = await this.stepHash(project, step.key, def, params, inputs);
         const workDir = path.join(project.paths.cache, sanitize(def.id), hash);
-        forceDownstream ||= !!opts.force?.includes(step.key);
         let manifest = await readManifest(workDir);
-        // A cache hit also requires the outputs to still exist on disk (user may have deleted them).
-        if (
-          manifest?.status === 'complete' &&
-          !forceDownstream &&
-          (await allExist(Object.values(manifest.outputs ?? {}).map((o) => o!.path)))
-        ) {
+        if (await isCacheHit(manifest)) {
+          manifest = manifest!;
           this.emitEvent({ type: 'stage.cached', runId, key: step.key, stageId: def.id, hash, stats: manifest.stats, notices: manifest.notices });
           // Backfill projects from before step records existed.
           const prev = project.meta.steps?.[step.key];
           if (prev?.hash !== hash || prev.status !== 'complete')
             await record(step.key, { stageId: def.id, hash, status: 'complete', stats: manifest.stats, finishedAt: manifest.finishedAt });
         } else {
-          if (forceDownstream || (manifest && !def.resumable)) await rm(workDir, { recursive: true, force: true });
-          const resume = !!manifest && !!def.resumable && !forceDownstream;
+          // A complete manifest here means its outputs are gone: start over, never resume.
+          const resume = manifest?.status === 'running' && !!def.resumable;
+          if (manifest && !resume) await rm(workDir, { recursive: true, force: true });
           await mkdir(workDir, { recursive: true });
           manifest = {
             status: 'running',
@@ -265,6 +269,21 @@ export class PipelineEngine extends EventEmitter {
       this.emitEvent({ type: 'run.done', runId, status, error });
     }
     return { runId, status };
+  }
+
+  /**
+   * Cache key of a step: stage + version, params, input hashes, tool versions and
+   * the step's force generation (omitted while 0, so older caches stay valid).
+   */
+  private async stepHash(
+    project: Project,
+    key: string,
+    def: { id: string; version: string; tools?: string[]; optionalTools?: string[] },
+    params: Record<string, unknown>,
+    inputs: Partial<Record<ArtifactKind, ArtifactRef>>,
+  ): Promise<string> {
+    const gen = project.meta.generations?.[key] ?? 0;
+    return hashOf(def.id, def.version, params, mapValues(inputs, (a) => a.hash), await this.toolFingerprint(def), ...(gen ? [{ gen }] : []));
   }
 
   /** Tool versions are part of the cache key: upgrading COLMAP/Brush invalidates results. */
@@ -402,8 +421,12 @@ async function writeManifest(dir: string, m: CacheManifest) {
   await writeFile(path.join(dir, 'manifest.json'), JSON.stringify({ ...m, outputs }, null, 2));
 }
 
+/** A usable cached result: finished, and its outputs still exist on disk (the user may have deleted them). */
+async function isCacheHit(m: CacheManifest | undefined): Promise<boolean> {
+  return m?.status === 'complete' && (await allExist(Object.values(m.outputs ?? {}).map((o) => o!.path)));
+}
+
 async function allExist(paths: string[]) {
-  const { access } = await import('node:fs/promises');
   for (const p of paths) {
     try {
       await access(p);

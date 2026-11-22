@@ -3,7 +3,7 @@ import { Film, FolderPlus, Image as ImageIcon, Play, Upload } from 'lucide-react
 import { useMemo, useState, type MouseEvent } from 'react';
 import { formatBytes } from '../../lib/format';
 import { useApp } from '../../store/app';
-import { qualityStepKey, stepStatus, usePipeline } from '../../store/pipeline';
+import { reviewStepKey, stepStatus, usePipeline } from '../../store/pipeline';
 import { Badge, Button, ChipGroup, EmptyState, ImageTile, SegmentedControl, Spinner } from '../../ui';
 import { MediaLightbox, type LightboxItem } from './MediaLightbox';
 import { SourcesButton } from './SourcesButton';
@@ -175,11 +175,12 @@ export function Gallery() {
 /** Reserved-height strip shown while reviewing frames: counts + Run all. */
 function ReviewBar({ kept, rejected, visible }: { kept: number; rejected: number; visible: boolean }) {
   const spec = usePipeline((s) => s.spec);
+  const stages = usePipeline((s) => s.stages);
   const steps = usePipeline((s) => s.steps);
   const plan = usePipeline((s) => s.plan);
   const running = usePipeline((s) => s.running);
   const run = usePipeline((s) => s.run);
-  const qKey = qualityStepKey(spec);
+  const qKey = reviewStepKey(spec, stages);
   const idx = spec?.steps.findIndex((x) => x.key === qKey) ?? -1;
   const next = idx >= 0 ? spec?.steps.slice(idx + 1).find((x) => x.enabled) : undefined;
   const nextDone = next ? ['done', 'cached'].includes(stepStatus({ steps, plan }, next.key, true).status) : true;

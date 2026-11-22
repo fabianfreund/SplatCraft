@@ -5,6 +5,7 @@ import { builtinPlugins } from '@splatcraft/plugins';
 import { defaultToolsDir, Toolchain } from '@splatcraft/toolchain';
 import { MonitorService } from './monitor';
 import { ProjectService } from './projects';
+import { Updater } from './updater';
 
 export interface Services {
   registry: Registry;
@@ -12,6 +13,7 @@ export interface Services {
   engine: PipelineEngine;
   projects: ProjectService;
   monitor: MonitorService;
+  updater: Updater;
   /** Plugin load failures (shown in logs; the app still starts). */
   pluginErrors: { id: string; error: string }[];
 }
@@ -41,5 +43,7 @@ export async function createServices(): Promise<Services> {
   const monitor = new MonitorService(registry, () => ({ projectDir: projects.currentProject?.dir, fallbackDir: userData }));
   void monitor.init();
 
-  return { registry, toolchain, engine, projects, monitor, pluginErrors };
+  const updater = new Updater(userData);
+
+  return { registry, toolchain, engine, projects, monitor, updater, pluginErrors };
 }

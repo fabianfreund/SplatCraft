@@ -49,6 +49,7 @@ MyScan.splatcraft/
   exports/
 ```
 - **Content-addressed cache:** `hash = H(stage id + stage version + tool version + params + input hashes)`. If nothing upstream changed, the result is reused instantly. If you change one parameter, only the stages downstream of it rerun. This is how "stop and pick up where you left off" works without special cases.
+  A forced re-run (`force: [key]`, "Re-align cameras" …) bumps that step's generation in `project.json` (`generations`), which is part of its hash too, so every later step goes out of date as well. A result only counts as cached while its output files still exist; `plan()` (the UI badges) and `run()` use the same check.
 - **User edits are overlays:** excluding a frame or adding a mask never deletes anything; it is a record in `project.db` that feeds into the next hash.
 - **Training checkpoints** are written every N steps. Resume means restarting from the last checkpoint.
 - **Versions:** each run is kept, so you can compare "Run 3 (30k steps, MCMC)" against "Run 4" side by side.

@@ -102,7 +102,7 @@ interface PipelineState {
   updateStep(key: string, patch: Partial<PipelineSpec['steps'][number]>): void;
   setPreset(preset: PresetId): Promise<void>;
   run(opts?: { untilKey?: string; force?: string[] }, origin?: 'step' | 'all'): Promise<void>;
-  /** Run up to the quality (review) step. */
+  /** Run up to the frame-review step. */
   runReview(): Promise<void>;
   /** Debounced review re-run after frame toggles. */
   scheduleReview(): void;
@@ -387,7 +387,7 @@ export const usePipeline = create<PipelineState>()((set, get) => ({
     }
   },
   async runReview() {
-    const key = qualityStepKey(get().spec);
+    const key = reviewStepKey(get().spec, get().stages);
     const st = get().spec?.steps.find((x) => x.key === key);
     if (!key || !st?.enabled) return;
     if (get().running) {
@@ -470,6 +470,13 @@ export function alternativesFor(stages: StageDescriptor[], stageId: string): Sta
   return stages.filter((x) => sig(x) === sig(d));
 }
 
-export function qualityStepKey(spec: PipelineSpec | null): string | undefined {
-  return spec?.steps.find((s) => s.stageId.includes('quality'))?.key;
+/** Param that holds the user's manual frame exclusions; its stage is the frame-review step. */
+export const REVIEW_PARAM = 'excluded';
+
+/** The step whose frames the user reviews (its stage takes manual picks), whatever the workflow. */
+export function reviewStepKey(spec: PipelineSpec | null, stages: StageDescriptor[]): string | undefined {
+  return spec?.steps.find((st) => {
+    const schema = descriptorFor(stages, st.stageId)?.paramsJsonSchema as { properties?: Record<string, unknown> } | undefined;
+    return !!schema?.properties && REVIEW_PARAM in schema.properties;
+  })?.key;
 }
