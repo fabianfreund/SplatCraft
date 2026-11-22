@@ -204,7 +204,7 @@ export const brushStage = defineStage<BrushParams>({
           if (!e) {
             // The TTY bar re-prints status lines on every redraw: log each distinct line once.
             const key = line.replace(/^\[[^\]]*\]\s*/, '');
-            if (!seenLines.has(key) && !/Steps|load_scene_img|Loaded COLMAP image|autotune|Tuning|cubecl|^[\s·•░▓█○◍🖌️]/u.test(line)) {
+            if (!seenLines.has(key) && !/Steps|load_scene_img|Loaded COLMAP image|autotune|Tuning|cubecl|^(?:[\s·•░▓█○◍]|🖌)/u.test(line)) {
               seenLines.add(key);
               ctx.log(line, 'info');
             }

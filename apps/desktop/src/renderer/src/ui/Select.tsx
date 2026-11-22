@@ -79,7 +79,7 @@ export function Select<T extends string>({ value, options, onChange, placeholder
       window.removeEventListener('mousedown', down);
       window.removeEventListener('blur', blur);
     };
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const move = (from: number, dir: 1 | -1) => {
     for (let i = 1; i <= options.length; i++) {

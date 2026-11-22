@@ -1,7 +1,7 @@
 import { File, Film, Image as ImageIcon, Scissors, X } from 'lucide-react';
 import { useState } from 'react';
 import { formatBytes, formatSeconds } from '../../lib/format';
-import { IconButton, ListRow, Text, Thumb } from '../../ui';
+import { IconButton, ListRow, Thumb } from '../../ui';
 import { trimmedLength } from './settings';
 import type { ImportItem } from './useImport';
 

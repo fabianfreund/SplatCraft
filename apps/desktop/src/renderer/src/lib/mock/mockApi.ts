@@ -86,7 +86,7 @@ export function createMockApi(): SplatCraftAPI {
 
   let trainingLoad = 0;
   const history: SystemSample[] = [];
-  let t0 = Date.now() - 180_000;
+  const t0 = Date.now() - 180_000;
   for (let i = 0; i < 180; i++) history.push(sample(t0 + i * 1000, 0));
   setInterval(() => {
     const s = sample(Date.now(), trainingLoad);

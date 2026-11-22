@@ -17,7 +17,8 @@ export function RecentList() {
   useEffect(() => {
     if (recent && sel >= recent.length) setSel(Math.max(0, recent.length - 1));
   }, [recent, sel]);
-  useEffect(() => listRef.current?.focus(), [recent === null]);
+  const loaded = recent !== null;
+  useEffect(() => listRef.current?.focus(), [loaded]);
 
   const openRow = (r: RecentProject | undefined) => r && r.exists && void open(r.dir);
 

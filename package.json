@@ -11,7 +11,8 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "cli": "pnpm --filter @splatcraft/cli start",
-    "release:mac": "./scripts/release-mac.sh"
+    "release:mac": "./scripts/release-mac.sh",
+    "lint": "eslint ."
   },
   "pnpm": {
     "supportedArchitectures": {
@@ -24,5 +25,12 @@
         "arm64"
       ]
     }
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^17.14.0",
+    "typescript-eslint": "^8.73.0"
   }
 }

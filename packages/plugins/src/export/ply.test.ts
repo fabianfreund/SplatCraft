@@ -90,9 +90,9 @@ function decode(buf: Buffer): Record<string, number>[] {
   for (let v = 0; v < el.count; v++) {
     const rec: Record<string, number> = {};
     for (const p of el.properties) {
-      if (p.type === 'uchar') (rec[p.name] = buf.readUInt8(o)), (o += 1);
-      else if (p.type === 'double') (rec[p.name] = le ? buf.readDoubleLE(o) : buf.readDoubleBE(o)), (o += 8);
-      else (rec[p.name] = le ? buf.readFloatLE(o) : buf.readFloatBE(o)), (o += 4);
+      const size = p.type === 'uchar' ? 1 : p.type === 'double' ? 8 : 4;
+      rec[p.name] = size === 1 ? buf.readUInt8(o) : size === 8 ? (le ? buf.readDoubleLE(o) : buf.readDoubleBE(o)) : le ? buf.readFloatLE(o) : buf.readFloatBE(o);
+      o += size;
     }
     out.push(rec);
   }

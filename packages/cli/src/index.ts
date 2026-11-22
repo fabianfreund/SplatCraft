@@ -11,7 +11,6 @@
  */
 import { readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import {
   classifySource,
   PipelineEngine,
@@ -25,7 +24,6 @@ import {
 import { builtinPlugins, defaultPipeline } from '@splatcraft/plugins';
 import { defaultToolsDir, Toolchain } from '@splatcraft/toolchain';
 
-const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const PRESETS: PresetId[] = ['fast', 'balanced', 'quality'];
 /** `pnpm --filter … start` runs in packages/cli; resolve user paths against the caller's cwd. */
 const CWD = process.env.INIT_CWD ?? process.cwd();

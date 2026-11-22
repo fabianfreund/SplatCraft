@@ -97,7 +97,11 @@ export function injectTiePoints(db: Db, tracks: readonly TieTrack[]): { rawMatch
         next[o] = p.x * img.width;
         next[o + 1] = p.y * img.height;
         if (cols === 4) next[o + 2] = SCALE; // x, y, scale, orientation
-        if (cols === 6) (next[o + 2] = SCALE), (next[o + 5] = SCALE); // x, y, a11, a12, a21, a22
+        if (cols === 6) {
+          // x, y, a11, a12, a21, a22
+          next[o + 2] = SCALE;
+          next[o + 5] = SCALE;
+        }
         index.set(`${trackOf.get(p)}|${name}`, rows + i);
       });
       if (kp) db.prepare('UPDATE keypoints SET rows = ?, cols = ?, data = ? WHERE image_id = ?').run(rows + pts.length, cols, new Uint8Array(next.buffer), img.id);
